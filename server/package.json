@@ -1,0 +1,29 @@
+{
+  "name": "mapping-server",
+  "private": true,
+  "version": "0.1.0",
+  "main": "server.js",
+  "scripts": {
+    "dev": "nodemon server.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "knex": "^3.1.0",
+    "mssql": "^11.0.1",
+    "multer": "^2.0.0",
+    "mysql2": "^3.11.5",
+    "nodemailer": "^8.0.7",
+    "pdfkit": "^0.17.1",
+    "sqlite3": "^6.0.1",
+    "vite": "8.0.13",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}
