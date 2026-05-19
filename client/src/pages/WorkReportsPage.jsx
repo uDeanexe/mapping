@@ -1,6 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import { apiDelete, apiGet, apiPostForm } from '../lib/api.js';
 import { ToastProvider, useToast } from '../components/Toast.jsx';
+
+const inputClass =
+  'w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors';
 
 function WorkReportsInner() {
   const toast = useToast();
@@ -21,11 +24,7 @@ function WorkReportsInner() {
   }));
 
   async function load() {
-    const [r, i, n] = await Promise.all([
-      apiGet('/api/work-reports'),
-      apiGet('/api/incidents'),
-      apiGet('/api/nodes')
-    ]);
+    const [r, i, n] = await Promise.all([apiGet('/api/work-reports'), apiGet('/api/incidents'), apiGet('/api/nodes')]);
     setReports(r);
     setIncidents(i);
     setNodes(n);
@@ -90,28 +89,28 @@ function WorkReportsInner() {
   }
 
   return (
-    <div className="page">
-      <div className="page-header">
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <div className="page-title">Rekam Kerja</div>
-          <div className="muted">Laporan penyelesaian teknisi dengan bukti foto dan keterangan pekerjaan.</div>
+          <h2 className="text-2xl font-bold leading-7 text-slate-900 sm:truncate sm:text-3xl sm:tracking-tight">Rekam Kerja</h2>
+          <p className="mt-1 text-sm text-slate-500">Laporan penyelesaian teknisi dengan bukti foto dan keterangan pekerjaan.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <a
+            className="inline-flex items-center justify-center rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 transition-colors border border-slate-200"
+            href="/gangguan"
+          >
+            Kembali ke Gangguan
+          </a>
         </div>
       </div>
 
-      <div className="mobile-quick-actions">
-        <a className="button button-secondary" href="/gangguan">Kembali ke Gangguan</a>
-      </div>
-
-      <div className="work-layout">
-        <form className="card form" onSubmit={submit}>
-          <div className="grid2">
-            <div className="field">
-              <label>Gangguan Terkait</label>
-              <select
-                className="input"
-                value={form.incident_id}
-                onChange={(e) => setForm((f) => ({ ...f, incident_id: e.target.value }))}
-              >
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <form className="rounded-xl bg-white shadow-sm border border-slate-200 p-6 space-y-4" onSubmit={submit}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="block text-sm font-semibold text-slate-700">Gangguan Terkait</label>
+              <select className={inputClass} value={form.incident_id} onChange={(e) => setForm((f) => ({ ...f, incident_id: e.target.value }))}>
                 <option value="">Tidak ada</option>
                 {incidents.map((it) => (
                   <option key={it.id} value={it.id}>
@@ -120,13 +119,9 @@ function WorkReportsInner() {
                 ))}
               </select>
             </div>
-            <div className="field">
-              <label>Node</label>
-              <select
-                className="input"
-                value={form.node_id}
-                onChange={(e) => setForm((f) => ({ ...f, node_id: e.target.value }))}
-              >
+            <div className="space-y-1.5">
+              <label className="block text-sm font-semibold text-slate-700">Node</label>
+              <select className={inputClass} value={form.node_id} onChange={(e) => setForm((f) => ({ ...f, node_id: e.target.value }))}>
                 <option value="">Tidak ada</option>
                 {nodes.map((n) => (
                   <option key={n.id} value={n.id}>
@@ -137,19 +132,15 @@ function WorkReportsInner() {
             </div>
           </div>
 
-          <div className="grid2">
-            <div className="field">
-              <label>Nama Teknisi</label>
-              <input
-                className="input"
-                value={form.technician_name}
-                onChange={(e) => setForm((f) => ({ ...f, technician_name: e.target.value }))}
-              />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="block text-sm font-semibold text-slate-700">Nama Teknisi</label>
+              <input className={inputClass} value={form.technician_name} onChange={(e) => setForm((f) => ({ ...f, technician_name: e.target.value }))} />
             </div>
-            <div className="field">
-              <label>Foto Bukti</label>
+            <div className="space-y-1.5">
+              <label className="block text-sm font-semibold text-slate-700">Foto Bukti</label>
               <input
-                className="input"
+                className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-[7px] text-sm text-slate-900 file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100 transition-colors"
                 type="file"
                 accept="image/*"
                 onChange={(e) => setForm((f) => ({ ...f, photo: e.target.files?.[0] || null }))}
@@ -157,20 +148,15 @@ function WorkReportsInner() {
             </div>
           </div>
 
-          <div className="field">
-            <label>Judul Laporan</label>
-            <input
-              className="input"
-              value={form.report_title}
-              onChange={(e) => setForm((f) => ({ ...f, report_title: e.target.value }))}
-              required
-            />
+          <div className="space-y-1.5">
+            <label className="block text-sm font-semibold text-slate-700">Judul Laporan</label>
+            <input className={inputClass} value={form.report_title} onChange={(e) => setForm((f) => ({ ...f, report_title: e.target.value }))} required />
           </div>
 
-          <div className="field">
-            <label>Keterangan Pekerjaan</label>
+          <div className="space-y-1.5">
+            <label className="block text-sm font-semibold text-slate-700">Keterangan Pekerjaan</label>
             <textarea
-              className="input"
+              className={inputClass}
               rows={5}
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
@@ -179,67 +165,86 @@ function WorkReportsInner() {
             />
           </div>
 
-          <div className="form-actions">
-            <button className="button button-primary" disabled={submitting}>
-              {submitting ? 'Menyimpan...' : 'Simpan Rekam Kerja'}
+          <div className="pt-2">
+            <button
+              className="inline-flex w-full items-center justify-center rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-sky-500 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+              disabled={submitting}
+            >
+              {submitting ? 'Menyimpan…' : 'Simpan Rekam Kerja'}
             </button>
           </div>
         </form>
 
-        <div className="card">
-          <div className="toolbar compact-toolbar">
+        <div className="rounded-xl bg-white shadow-sm border border-slate-200 overflow-hidden">
+          <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row gap-3 sm:items-center">
             <input
-              className="input"
+              className={inputClass}
               placeholder="Search laporan/node/teknisi..."
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
             <button
-              className="button button-secondary"
+              className="w-full sm:w-auto inline-flex items-center justify-center rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 transition-colors border border-slate-200"
               onClick={() => load().then(() => toast.success('Data diperbarui')).catch((e) => toast.error(e.message))}
+              type="button"
             >
               Refresh
             </button>
           </div>
 
-          <div className="report-list">
+          <div className="p-4">
             {filtered.length === 0 ? (
-              <div className="muted">Belum ada rekam kerja.</div>
+              <div className="text-sm text-slate-500">Belum ada rekam kerja.</div>
             ) : (
-              filtered.map((r) => (
-                <div className="report-item" key={r.id}>
-                  {r.photo_path ? <img className="report-photo" src={r.photo_path} alt={r.report_title} /> : null}
-                  <div className="report-body">
-                    <div className="report-title">{r.report_title}</div>
-                    <div className="muted">
-                      {r.technician_name || '-'} | {r.node_code || '-'} | {r.incident_title || 'Tanpa gangguan'}
-                    </div>
-                    <div className="report-desc">{r.description}</div>
-                    <div className="report-actions">
+              <div className="space-y-4">
+                {filtered.map((r) => (
+                  <div key={r.id} className="rounded-xl border border-slate-200 bg-white p-4 hover:border-sky-200 hover:shadow-sm transition">
+                    <div className="flex gap-4">
                       {r.photo_path ? (
-                        <a className="button button-ghost" href={r.photo_path} target="_blank" rel="noreferrer">
-                          Lihat Foto
-                        </a>
-                      ) : null}
-                      <button
-                        className="button button-danger"
-                        onClick={async () => {
-                          if (!confirm(`Hapus rekam kerja: ${r.report_title}?`)) return;
-                          try {
-                            await apiDelete(`/api/work-reports/${r.id}`);
-                            toast.success('Rekam kerja dihapus');
-                            await load();
-                          } catch (err) {
-                            toast.error(err.message || 'Gagal hapus');
-                          }
-                        }}
-                      >
-                        Hapus
-                      </button>
+                        <img className="h-20 w-24 rounded-lg border border-slate-200 object-cover" src={r.photo_path} alt={r.report_title} />
+                      ) : (
+                        <div className="h-20 w-24 rounded-lg border border-dashed border-slate-200 bg-slate-50" />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-semibold text-slate-900">{r.report_title}</div>
+                        <div className="mt-1 text-xs text-slate-500">
+                          {r.technician_name || '-'} | {r.node_code || '-'} | {r.incident_title || 'Tanpa gangguan'}
+                        </div>
+                        <div className="mt-2 text-sm text-slate-700 whitespace-pre-wrap">{r.description}</div>
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {r.photo_path ? (
+                            <a
+                              className="inline-flex items-center justify-center rounded-lg bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 border border-slate-200 transition-colors"
+                              href={r.photo_path}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Lihat Foto
+                            </a>
+                          ) : null}
+                          <button
+                            className="inline-flex items-center justify-center rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-500 transition-colors"
+                            onClick={async () => {
+                              if (!confirm(`Hapus rekam kerja: ${r.report_title}?`)) return;
+                              try {
+                                await apiDelete(`/api/work-reports/${r.id}`);
+                                toast.success('Rekam kerja dihapus');
+                                await load();
+                              } catch (err) {
+                                toast.error(err.message || 'Gagal hapus');
+                              }
+                            }}
+                            type="button"
+                          >
+                            Hapus
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
+                ))}
+              </div>
             )}
           </div>
         </div>

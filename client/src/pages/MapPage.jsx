@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -95,15 +95,17 @@ function MapInner() {
   }, [links]);
 
   return (
-    <div className="page">
-      <div className="page-header">
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <div className="page-title">Map View</div>
-          <div className="muted">Marker + polyline berdasarkan koordinat GPS (OpenStreetMap).</div>
+          <h2 className="text-2xl font-bold leading-7 text-slate-900 sm:truncate sm:text-3xl sm:tracking-tight">
+            Map View
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">Marker + polyline berdasarkan koordinat GPS (OpenStreetMap).</p>
         </div>
-        <div className="page-actions">
+        <div className="flex flex-wrap items-center gap-3">
           <button
-            className="button button-secondary"
+            className="inline-flex items-center justify-center rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 transition-colors border border-slate-200"
             onClick={async () => {
               try {
                 const [n, l] = await Promise.all([apiGet('/api/nodes'), apiGet('/api/links')]);
@@ -120,8 +122,8 @@ function MapInner() {
         </div>
       </div>
 
-      <div className="map-wrap">
-        <MapContainer className="map" center={center} zoom={15} scrollWheelZoom>
+      <div className="relative rounded-xl bg-white shadow-sm border border-slate-200 overflow-hidden h-[70vh] min-h-[420px]">
+        <MapContainer className="w-full h-full" center={center} zoom={15} scrollWheelZoom>
           <TileLayer
             attribution="&copy; OpenStreetMap contributors"
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -147,55 +149,53 @@ function MapInner() {
           {nodes
             .filter((n) => Number.isFinite(n.latitude) && Number.isFinite(n.longitude))
             .map((node) => (
-              <Marker
-                key={node.id}
-                position={[Number(node.latitude), Number(node.longitude)]}
-                icon={markerIcon(node.type)}
-              >
+              <Marker key={node.id} position={[Number(node.latitude), Number(node.longitude)]} icon={markerIcon(node.type)}>
                 <Popup>
-                  <div className="popup">
-                    <div className="popup-title">{node.code}</div>
-                    <div className="popup-row">
-                      <span className="muted">Nama:</span> {node.name || '-'}
+                  <div className="space-y-1">
+                    <div className="font-semibold text-slate-900">{node.code}</div>
+                    <div className="text-sm text-slate-700">
+                      <span className="text-slate-500">Nama:</span> {node.name || '-'}
                     </div>
-                    <div className="popup-row">
-                      <span className="muted">Jenis:</span> {node.type || '-'}
+                    <div className="text-sm text-slate-700">
+                      <span className="text-slate-500">Jenis:</span> {node.type || '-'}
                     </div>
-                  <div className="popup-row">
-                    <span className="muted">Koordinat:</span> {node.latitude}, {node.longitude}
-                  </div>
-                  {Number.isFinite(Number(node.latitude)) && Number.isFinite(Number(node.longitude)) ? (
-                    <div className="popup-row">
-                      <a
-                        className="link"
-                        href={googleMapsLink(Number(node.latitude), Number(node.longitude))}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Buka di Google Maps
-                      </a>
+                    <div className="text-sm text-slate-700">
+                      <span className="text-slate-500">Koordinat:</span> {node.latitude}, {node.longitude}
                     </div>
-                  ) : null}
-                  <div className="popup-row">
-                    <span className="muted">Alamat:</span> {node.address || '-'}
-                  </div>
-                    <div className="popup-row">
-                      <span className="muted">Catatan:</span> {node.notes || '-'}
+                    {Number.isFinite(Number(node.latitude)) && Number.isFinite(Number(node.longitude)) ? (
+                      <div className="pt-1">
+                        <a
+                          className="text-sm font-semibold text-sky-700 hover:text-sky-800 hover:underline"
+                          href={googleMapsLink(Number(node.latitude), Number(node.longitude))}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Buka di Google Maps
+                        </a>
+                      </div>
+                    ) : null}
+                    <div className="text-sm text-slate-700">
+                      <span className="text-slate-500">Alamat:</span> {node.address || '-'}
+                    </div>
+                    <div className="text-sm text-slate-700">
+                      <span className="text-slate-500">Catatan:</span> {node.notes || '-'}
                     </div>
                     {node.photo_path ? (
-                      <img className="popup-photo" alt={node.code} src={node.photo_path} />
+                      <img className="mt-2 w-full max-w-[220px] rounded-lg border border-slate-200" alt={node.code} src={node.photo_path} />
                     ) : null}
                   </div>
                 </Popup>
               </Marker>
             ))}
-
-          {loading ? (
-            <div className="leaflet-overlay-status">
-              <div className="card">Loading data...</div>
-            </div>
-          ) : null}
         </MapContainer>
+
+        {loading ? (
+          <div className="pointer-events-none absolute inset-0 flex items-start justify-center p-4">
+            <div className="pointer-events-auto rounded-xl bg-white border border-slate-200 shadow-lg px-4 py-2 text-sm font-semibold text-slate-700">
+              Loading data…
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

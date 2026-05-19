@@ -75,7 +75,7 @@ export default function TopologyNode({ data }) {
         <Icon type={data?.type} />
       </div>
       <div className="t-node-title">{data?.label}</div>
-      <div className="t-node-sub muted">{(data?.type || '').toUpperCase()}</div>
+      <div className="t-node-sub text-slate-500">{(data?.type || '').toUpperCase()}</div>
     </div>
   );
 }

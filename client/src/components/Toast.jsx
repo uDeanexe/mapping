@@ -2,6 +2,19 @@ import React, { createContext, useCallback, useContext, useMemo, useState } from
 
 const ToastCtx = createContext(null);
 
+function toastClass(type) {
+  switch (type) {
+    case 'success':
+      return 'border-emerald-200 bg-white text-slate-900';
+    case 'error':
+      return 'border-red-200 bg-white text-slate-900';
+    case 'info':
+      return 'border-sky-200 bg-white text-slate-900';
+    default:
+      return 'border-slate-200 bg-white text-slate-900';
+  }
+}
+
 export function ToastProvider({ children }) {
   const [items, setItems] = useState([]);
 
@@ -26,10 +39,31 @@ export function ToastProvider({ children }) {
   return (
     <ToastCtx.Provider value={api}>
       {children}
-      <div className="toasts">
+      <div className="fixed bottom-4 right-4 z-[60] w-[min(92vw,380px)] space-y-3">
         {items.map((t) => (
-          <div key={t.id} className={`toast toast-${t.type}`}>
-            {t.message}
+          <div
+            key={t.id}
+            className={`rounded-xl border px-4 py-3 shadow-lg shadow-slate-900/10 text-sm font-semibold ${toastClass(
+              t.type
+            )}`}
+            role="status"
+            aria-live="polite"
+          >
+            <div className="flex items-start gap-3">
+              <span
+                className={`mt-0.5 inline-flex h-2.5 w-2.5 shrink-0 rounded-full ${
+                  t.type === 'success'
+                    ? 'bg-emerald-500'
+                    : t.type === 'error'
+                      ? 'bg-red-500'
+                      : t.type === 'info'
+                        ? 'bg-sky-500'
+                        : 'bg-slate-400'
+                }`}
+                aria-hidden="true"
+              />
+              <div className="min-w-0 flex-1 break-words">{t.message}</div>
+            </div>
           </div>
         ))}
       </div>
@@ -42,4 +76,3 @@ export function useToast() {
   if (!ctx) throw new Error('ToastProvider belum dipasang');
   return ctx;
 }
-

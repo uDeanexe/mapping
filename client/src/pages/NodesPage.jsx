@@ -71,15 +71,15 @@ function NodesInner() {
   }
 
   return (
-    <div className="page">
-      <div className="page-header">
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <div className="page-title">Data Node</div>
-          <div className="muted">CRUD node + upload foto + GPS.</div>
+          <h2 className="text-2xl font-bold leading-7 text-slate-900 sm:truncate sm:text-3xl sm:tracking-tight">Data Node</h2>
+          <p className="mt-1 text-sm text-slate-500">Manajemen titik node jaringan, upload foto, dan koordinat GPS.</p>
         </div>
-        <div className="page-actions">
+        <div className="flex flex-wrap items-center gap-3">
           <button
-            className="button button-primary"
+            className="inline-flex items-center justify-center rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-sky-500 transition-colors"
             onClick={() => {
               setEditing(null);
               setOpen(true);
@@ -90,9 +90,9 @@ function NodesInner() {
         </div>
       </div>
 
-      <div className="toolbar">
-        <input className="input" placeholder="Search kode/nama/alamat..." value={q} onChange={(e) => setQ(e.target.value)} />
-        <select className="input" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+      <div className="flex flex-col sm:flex-row gap-3 items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+        <input className="w-full sm:flex-1 rounded-lg border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors" placeholder="Search kode/nama/alamat..." value={q} onChange={(e) => setQ(e.target.value)} />
+        <select className="w-full sm:w-auto rounded-lg border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
           <option value="">Semua jenis</option>
           {nodeTypes.map((t) => (
             <option key={t.id} value={t.name}>
@@ -101,78 +101,84 @@ function NodesInner() {
           ))}
         </select>
         <button
-          className="button button-secondary"
+          className="w-full sm:w-auto inline-flex items-center justify-center rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 transition-colors border border-slate-200"
           onClick={() => load().then(() => toast.success('Data diperbarui')).catch((e) => toast.error(e.message))}
         >
           Refresh
         </button>
       </div>
 
-      <div className="card">
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
+      <div className="rounded-xl bg-white shadow-sm border border-slate-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-full text-left text-sm">
+            <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
-                <th>Kode</th>
-                <th>Jenis</th>
-                <th>Nama</th>
-                <th>Koordinat</th>
-                <th>Alamat</th>
-                <th className="right">Aksi</th>
+                <th className="px-4 py-3 font-semibold text-slate-700">Kode</th>
+                <th className="px-4 py-3 font-semibold text-slate-700">Jenis</th>
+                <th className="px-4 py-3 font-semibold text-slate-700">Nama</th>
+                <th className="px-4 py-3 font-semibold text-slate-700">Koordinat</th>
+                <th className="px-4 py-3 font-semibold text-slate-700">Alamat</th>
+                <th className="px-4 py-3 font-semibold text-slate-700 text-right">Aksi</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="muted">
+                  <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
                     Belum ada data.
                   </td>
                 </tr>
               ) : (
                 filtered.map((n) => (
-                  <tr key={n.id}>
-                    <td data-label="Kode" className="mono">{n.code}</td>
-                    <td data-label="Jenis">{n.type_label || n.type}</td>
-                    <td data-label="Nama">{n.name || '-'}</td>
-                    <td data-label="Koordinat" className="mono">
+                  <tr key={n.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-4 py-3 font-mono text-xs font-medium text-sky-700">{n.code}</td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-800">
+                        {n.type_label || n.type}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-700">{n.name || '-'}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-slate-500">
                       {Number.isFinite(n.latitude) && Number.isFinite(n.longitude) ? `${n.latitude}, ${n.longitude}` : '-'}
                     </td>
-                    <td data-label="Alamat">{n.address || '-'}</td>
-                    <td data-label="Aksi" className="right">
-                      {Number.isFinite(n.latitude) && Number.isFinite(n.longitude) ? (
-                        <a
-                          className="button button-ghost"
-                          href={googleMapsLink(Number(n.latitude), Number(n.longitude))}
-                          target="_blank"
-                          rel="noreferrer"
+                    <td className="px-4 py-3 text-slate-600 max-w-[200px] truncate" title={n.address}>{n.address || '-'}</td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {Number.isFinite(n.latitude) && Number.isFinite(n.longitude) ? (
+                          <a
+                            className="inline-flex items-center justify-center rounded bg-white px-2 py-1 text-xs font-semibold text-slate-700 border border-slate-300 hover:bg-slate-50"
+                            href={googleMapsLink(Number(n.latitude), Number(n.longitude))}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Maps
+                          </a>
+                        ) : null}
+                        <button
+                          className="inline-flex items-center justify-center rounded bg-white px-2 py-1 text-xs font-semibold text-slate-700 border border-slate-300 hover:bg-slate-50"
+                          onClick={() => {
+                            setEditing(n);
+                            setOpen(true);
+                          }}
                         >
-                          Maps
-                        </a>
-                      ) : null}
-                      <button
-                        className="button button-ghost"
-                        onClick={() => {
-                          setEditing(n);
-                          setOpen(true);
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className="button button-danger"
-                        onClick={async () => {
-                          if (!confirm(`Hapus node ${n.code}?`)) return;
-                          try {
-                            await apiDelete(`/api/nodes/${n.id}`);
-                            toast.success('Node dihapus');
-                            await load();
-                          } catch (e) {
-                            toast.error(e.message || 'Gagal hapus');
-                          }
-                        }}
-                      >
-                        Hapus
-                      </button>
+                          Edit
+                        </button>
+                        <button
+                          className="inline-flex items-center justify-center rounded bg-red-50 px-2 py-1 text-xs font-semibold text-red-700 border border-red-200 hover:bg-red-100"
+                          onClick={async () => {
+                            if (!confirm(`Hapus node ${n.code}?`)) return;
+                            try {
+                              await apiDelete(`/api/nodes/${n.id}`);
+                              toast.success('Node dihapus');
+                              await load();
+                            } catch (e) {
+                              toast.error(e.message || 'Gagal hapus');
+                            }
+                          }}
+                        >
+                          Hapus
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -253,46 +259,46 @@ function NodeFormModal({ open, onClose, nodeTypes, initial, onSubmit, submitting
       width={1040}
     >
       <form
-        className="form"
+        className="space-y-6"
         onSubmit={(e) => {
           e.preventDefault();
           onSubmit(values);
         }}
       >
-        <div className="nodeform-split">
-          <div className="nodeform-left">
-            <div className="field">
-              <label>Peta</label>
+        <div className="flex flex-col lg:flex-row gap-6">
+          <div className="w-full lg:w-[40%] flex flex-col gap-4">
+            <div className="space-y-1.5">
+              <label className="block text-sm font-semibold text-slate-700">Peta Lokasi</label>
               <LocationPicker
                 value={locValue}
                 onChange={({ lat, lng }) => setValues((v) => ({ ...v, latitude: lat, longitude: lng }))}
-                height={420}
+                height={380}
               />
             </div>
 
-            <div className="nodeform-point card">
-              <div className="nodeform-point-title">Maps Point</div>
-              <div className="nodeform-point-row">
-                <span className="muted">Latitude:</span>{' '}
-                <span className="mono">
+            <div className="rounded-xl bg-slate-50 border border-slate-200 p-4">
+              <div className="text-sm font-bold text-slate-800 mb-2">Koordinat Terpilih</div>
+              <div className="flex justify-between text-sm py-1 border-b border-slate-200 last:border-0">
+                <span className="text-slate-500">Latitude:</span>{' '}
+                <span className="font-mono text-slate-800">
                   {values.latitude === '' ? '-' : String(values.latitude)}
                 </span>
               </div>
-              <div className="nodeform-point-row">
-                <span className="muted">Longitude:</span>{' '}
-                <span className="mono">
+              <div className="flex justify-between text-sm py-1 border-b border-slate-200 last:border-0">
+                <span className="text-slate-500">Longitude:</span>{' '}
+                <span className="font-mono text-slate-800">
                   {values.longitude === '' ? '-' : String(values.longitude)}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="nodeform-right">
-            <div className="grid2">
-              <div className="field">
-                <label>Jenis Node</label>
+          <div className="w-full lg:w-[60%] flex flex-col gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="block text-sm font-semibold text-slate-700">Jenis Node</label>
                 <select
-                  className="input"
+                  className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors"
                   value={values.node_type_id}
                   onChange={(e) => setValues((v) => ({ ...v, node_type_id: Number(e.target.value) }))}
                   required
@@ -304,30 +310,31 @@ function NodeFormModal({ open, onClose, nodeTypes, initial, onSubmit, submitting
                   ))}
                 </select>
               </div>
-              <div className="field">
-                <label>Kode</label>
+              <div className="space-y-1.5">
+                <label className="block text-sm font-semibold text-slate-700">Kode Node</label>
                 <input
-                  className="input"
+                  className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors"
                   value={values.code}
                   onChange={(e) => setValues((v) => ({ ...v, code: e.target.value }))}
                   required
+                  placeholder="Contoh: ODC-001"
                 />
               </div>
             </div>
 
-            <div className="grid2">
-              <div className="field">
-                <label>Nama</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="block text-sm font-semibold text-slate-700">Nama (Opsional)</label>
                 <input
-                  className="input"
+                  className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors"
                   value={values.name}
                   onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))}
                 />
               </div>
-              <div className="field">
-                <label>Foto (opsional)</label>
+              <div className="space-y-1.5">
+                <label className="block text-sm font-semibold text-slate-700">Foto Lapangan</label>
                 <input
-                  className="input"
+                  className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-[7px] text-sm text-slate-900 file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100 transition-colors"
                   type="file"
                   accept="image/*"
                   onChange={(e) => setValues((v) => ({ ...v, photo: e.target.files?.[0] || null }))}
@@ -335,50 +342,49 @@ function NodeFormModal({ open, onClose, nodeTypes, initial, onSubmit, submitting
               </div>
             </div>
 
-            <div className="grid3">
-              <div className="field">
-                <label>Latitude</label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+              <div className="space-y-1.5">
+                <label className="block text-sm font-semibold text-slate-700">Latitude</label>
                 <input
-                  className="input"
+                  className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors"
                   type="number"
                   step="any"
                   value={values.latitude}
                   onChange={(e) => setValues((v) => ({ ...v, latitude: e.target.value }))}
                 />
               </div>
-              <div className="field">
-                <label>Longitude</label>
+              <div className="space-y-1.5">
+                <label className="block text-sm font-semibold text-slate-700">Longitude</label>
                 <input
-                  className="input"
+                  className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors"
                   type="number"
                   step="any"
                   value={values.longitude}
                   onChange={(e) => setValues((v) => ({ ...v, longitude: e.target.value }))}
                 />
               </div>
-              <div className="field">
-                <label>&nbsp;</label>
-                <button type="button" className="button button-secondary" onClick={fillGps}>
+              <div className="space-y-1.5">
+                <button type="button" className="w-full inline-flex items-center justify-center rounded-lg bg-slate-200 px-4 py-2 font-semibold text-slate-800 hover:bg-slate-300 transition-colors" onClick={fillGps}>
                   Ambil GPS
                 </button>
               </div>
             </div>
 
-            <div className="field">
-              <label>Alamat</label>
+            <div className="space-y-1.5">
+              <label className="block text-sm font-semibold text-slate-700">Alamat</label>
               <textarea
-                className="input"
+                className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors"
                 rows={3}
                 value={values.address}
                 onChange={(e) => setValues((v) => ({ ...v, address: e.target.value }))}
               />
             </div>
 
-            <div className="field">
-              <label>Catatan</label>
+            <div className="space-y-1.5">
+              <label className="block text-sm font-semibold text-slate-700">Catatan</label>
               <textarea
-                className="input"
-                rows={4}
+                className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors"
+                rows={3}
                 value={values.notes}
                 onChange={(e) => setValues((v) => ({ ...v, notes: e.target.value }))}
               />
@@ -386,12 +392,12 @@ function NodeFormModal({ open, onClose, nodeTypes, initial, onSubmit, submitting
           </div>
         </div>
 
-        <div className="form-actions">
-          <button className="button button-primary" disabled={submitting}>
-            {submitting ? 'Menyimpan...' : 'Simpan'}
-          </button>
-          <button type="button" className="button button-ghost" onClick={onClose} disabled={submitting}>
+        <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-slate-100 mt-6">
+          <button type="button" className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors border border-transparent" onClick={onClose} disabled={submitting}>
             Batal
+          </button>
+          <button className="inline-flex items-center justify-center rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-sky-500 transition-colors focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed" disabled={submitting}>
+            {submitting ? 'Menyimpan...' : 'Simpan'}
           </button>
         </div>
       </form>

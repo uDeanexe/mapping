@@ -91,9 +91,7 @@ const navItems = [
     to: '/rekam-kerja',
     label: 'Rekam Kerja',
     icon: (
-      <svg width="18" he
-      
-      ight="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M9 3h6" />
         <path d="M9 7h6" />
         <path d="M5 21h14" />
@@ -125,6 +123,24 @@ function Layout({ children }) {
     setIsSidebarOpen(false);
   }, [location.pathname]);
 
+  useEffect(() => {
+    if (!isSidebarOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isSidebarOpen]);
+
+  useEffect(() => {
+    if (!isSidebarOpen) return;
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') setIsSidebarOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isSidebarOpen]);
+
   const handleLogout = () => {
     clearAuth();
     navigate('/login', { replace: true });
@@ -137,12 +153,15 @@ function Layout({ children }) {
         user={user}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
-        onLogout={handleLogout}
         canManageUsers={canManageUsers}
       />
       
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Header onToggleSidebar={() => setIsSidebarOpen(true)} user={user} />
+        <Header
+          onToggleSidebar={() => setIsSidebarOpen(true)}
+          onLogout={handleLogout}
+          user={user}
+        />
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           {children}
         </main>
@@ -180,9 +199,9 @@ export default function App() {
         path="*"
         element={
           <ProtectedPage>
-            <div className="card">
-              <h2>Halaman tidak ditemukan</h2>
-              <p className="muted">Cek menu di sidebar.</p>
+            <div className="rounded-xl bg-white border border-slate-200 shadow-sm p-6">
+              <h2 className="text-lg font-semibold text-slate-900">Halaman tidak ditemukan</h2>
+              <p className="mt-1 text-sm text-slate-500">Cek menu di sidebar.</p>
             </div>
           </ProtectedPage>
         }

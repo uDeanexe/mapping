@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import { MapContainer, Marker, TileLayer, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -48,12 +48,12 @@ export default function LocationPicker({
   }, []);
 
   return (
-    <div className="locpicker">
-      <div className="locpicker-help muted">
+    <div className="rounded-xl bg-white border border-slate-200 overflow-hidden">
+      <div className="bg-slate-50 border-b border-slate-200 px-4 py-3 text-sm text-slate-600">
         Klik peta untuk set koordinat. Marker bisa di-drag. {dragging ? 'Sedang drag…' : ''}
       </div>
-      <div className="locpicker-map" style={{ height }}>
-        <MapContainer className="map" center={center} zoom={16} scrollWheelZoom>
+      <div style={{ height }} className="relative">
+        <MapContainer className="w-full h-full" center={center} zoom={16} scrollWheelZoom>
           <TileLayer
             attribution="&copy; OpenStreetMap contributors"
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -80,4 +80,3 @@ export default function LocationPicker({
     </div>
   );
 }
-

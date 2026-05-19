@@ -2,13 +2,16 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-const { ensureDir, openDb, promisifyDb, initSchema } = require('./lib/db');
+const { ensureDir, openDb, promisifyDb } = require('./lib/db');
+const { ensureDatabaseExists, runMigrations } = require('./lib/migrations');
 const {
   nodeCreateSchema,
   nodePositionSchema,
@@ -26,12 +29,21 @@ const { buildSuratJalanPdf, buildSuratJalanPdfBuffer } = require('./lib/pdf');
 const { createTransport } = require('./lib/email');
 
 const app = express();
+app.disable('x-powered-by');
 
 const PORT = Number(process.env.PORT || 3001);
 const DB_PATH = process.env.DATABASE_PATH || './database/app.db';
 const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
 const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:5173';
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
+
+if (String(process.env.NODE_ENV || '').toLowerCase() === 'production') {
+  if (JWT_SECRET === 'dev-secret-change-me' || JWT_SECRET.length < 32) {
+    // eslint-disable-next-line no-console
+    console.error('JWT_SECRET harus di-set dan minimal 32 karakter di mode production.');
+    process.exit(1);
+  }
+}
 
 ensureDir(path.resolve(UPLOAD_DIR, 'nodes'));
 ensureDir(path.resolve(UPLOAD_DIR, 'incidents'));
@@ -42,75 +54,36 @@ const rawDb = openDb(path.resolve(__dirname, DB_PATH));
 const db = promisifyDb(rawDb);
 
 async function bootstrap() {
+  await ensureDatabaseExists();
   const schemaPath = path.resolve(__dirname, 'database', 'schema.sql');
-  await initSchema(db, schemaPath);
-  const addColumnType = (type) => (db.alterColumnType ? db.alterColumnType(type) : type);
-  const defaultNodeTypes = [
-    [1, 'odc', 'ODC', 'odc.png'],
-    [2, 'pon', 'PON', 'pon.png'],
-    [3, 'box', 'Box / ODP', 'box.png'],
-    [4, 'pole', 'Tiang', 'pole.png'],
-    [5, 'customer', 'Customer', 'customer.png'],
-    [6, 'server', 'Server', 'server.png'],
-    [7, 'olc', 'OLC', 'olc.png']
-  ];
-
-  for (const [id, name, label, icon] of defaultNodeTypes) {
-    const exists = await db.get('SELECT id FROM node_types WHERE id = ? OR name = ? LIMIT 1', [id, name]);
-    if (!exists) {
-      await db.run('INSERT INTO node_types (id, name, label, icon) VALUES (?, ?, ?, ?)', [id, name, label, icon]);
-    }
-  }
-
-  const columns = await db.columns('incidents');
-  const columnNames = new Set(columns.map((c) => c.name));
-  const incidentColumns = [
-    ['noc_admin_name', 'TEXT'],
-    ['technician_name', 'TEXT'],
-    ['technician_contact', 'TEXT'],
-    ['technician_email', 'TEXT'],
-    ['work_order_notes', 'TEXT'],
-    ['technician_report', 'TEXT'],
-    ['photo_path', 'TEXT'],
-    ['assigned_at', 'DATETIME'],
-    ['completed_at', 'DATETIME']
-  ];
-
-  for (const [name, type] of incidentColumns) {
-    if (!columnNames.has(name)) {
-      await db.run(`ALTER TABLE incidents ADD COLUMN ${name} ${addColumnType(type)}`);
-    }
-  }
-
-  await db.run("UPDATE incidents SET status = 'reported' WHERE status = 'open'");
-  await db.run("UPDATE incidents SET status = 'closed' WHERE status IS NULL OR status = ''");
-
-  const userColumns = await db.columns('users');
-  const userColumnNames = new Set(userColumns.map((c) => c.name));
-  for (const [name, type] of [
-    ['is_active', 'INTEGER NOT NULL DEFAULT 1'],
-    ['updated_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP']
-  ]) {
-    if (!userColumnNames.has(name)) {
-      await db.run(`ALTER TABLE users ADD COLUMN ${name} ${addColumnType(type)}`);
-    }
-  }
-
-  const defaultEmail = process.env.DEFAULT_SUPERADMIN_EMAIL || 'superadmin@mapping.local';
-  const defaultPassword = process.env.DEFAULT_SUPERADMIN_PASSWORD || 'superadmin123';
-  const existingSuperadmin = await db.get('SELECT id FROM users WHERE role = ? LIMIT 1', ['superadmin']);
-  if (!existingSuperadmin) {
-    const passwordHash = await bcrypt.hash(defaultPassword, 10);
-    await db.run(
-      'INSERT INTO users (name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?)',
-      ['Super Admin', defaultEmail, passwordHash, 'superadmin', 1]
-    );
-  }
+  await runMigrations(db, schemaPath);
 }
 
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' }
+  })
+);
 app.use(cors({ origin: CORS_ORIGIN }));
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+app.use(
+  rateLimit({
+    windowMs: 5 * 60 * 1000,
+    limit: 300,
+    standardHeaders: true,
+    legacyHeaders: false
+  })
+);
+
+const loginLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Terlalu banyak percobaan login, coba lagi sebentar.' }
+});
 app.use('/uploads', express.static(path.resolve(__dirname, UPLOAD_DIR)));
 
 const storage = multer.diskStorage({
@@ -286,7 +259,7 @@ async function getIncidentWithNode(id) {
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', loginLimiter, async (req, res) => {
   try {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) return apiError(res, 422, 'Validasi gagal', parsed.error.flatten());

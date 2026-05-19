@@ -74,7 +74,7 @@ export default function DashboardPage() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="flex flex-col rounded-xl bg-white p-6 shadow-sm border border-slate-200 transition hover:shadow-md hover:border-sky-300">
+        <div className="flex flex-col rounded-xl bg-white p-6 shadow-sm border border-slate-200 transition hover:shadow-md hover:border-sky-300 hover:scale-[1.01] transform-gpu">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-medium text-slate-500">Data Node</h3>
             <div className="rounded-lg bg-blue-50 p-2 text-blue-600">
@@ -84,7 +84,7 @@ export default function DashboardPage() {
           <div className="mt-4 text-3xl font-bold text-slate-900">{totals.nodes ?? '-'}</div>
         </div>
         
-        <div className="flex flex-col rounded-xl bg-white p-6 shadow-sm border border-slate-200 transition hover:shadow-md hover:border-emerald-300">
+        <div className="flex flex-col rounded-xl bg-white p-6 shadow-sm border border-slate-200 transition hover:shadow-md hover:border-emerald-300 hover:scale-[1.01] transform-gpu">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-medium text-slate-500">Data Link</h3>
             <div className="rounded-lg bg-emerald-50 p-2 text-emerald-600">
@@ -94,7 +94,7 @@ export default function DashboardPage() {
           <div className="mt-4 text-3xl font-bold text-slate-900">{totals.links ?? '-'}</div>
         </div>
 
-        <div className="flex flex-col rounded-xl bg-white p-6 shadow-sm border border-slate-200 transition hover:shadow-md hover:border-red-300">
+        <div className="flex flex-col rounded-xl bg-white p-6 shadow-sm border border-slate-200 transition hover:shadow-md hover:border-red-300 hover:scale-[1.01] transform-gpu">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-medium text-slate-500">Gangguan Aktif</h3>
             <div className="rounded-lg bg-red-50 p-2 text-red-600">
@@ -104,7 +104,7 @@ export default function DashboardPage() {
           <div className="mt-4 text-3xl font-bold text-slate-900">{totals.incidents ?? '-'}</div>
         </div>
 
-        <div className="flex flex-col rounded-xl bg-white p-6 shadow-sm border border-slate-200 transition hover:shadow-md hover:border-amber-300">
+        <div className="flex flex-col rounded-xl bg-white p-6 shadow-sm border border-slate-200 transition hover:shadow-md hover:border-amber-300 hover:scale-[1.01] transform-gpu">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-medium text-slate-500">Rekam Kerja</h3>
             <div className="rounded-lg bg-amber-50 p-2 text-amber-600">
@@ -136,7 +136,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Tables / Lists Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="space-y-6">
         {/* Status Gangguan */}
         <div className="rounded-xl bg-white shadow-sm border border-slate-200 flex flex-col">
           <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import ReactFlow, {
   Background,
   Controls,
@@ -14,7 +14,6 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { Link } from 'react-router-dom';
 import { apiGet, apiPatchJson, apiPostJson } from '../lib/api.js';
-import { typeColor } from '../lib/nodeTypes.js';
 import { ToastProvider, useToast } from '../components/Toast.jsx';
 import TopologyNode from '../components/TopologyNode.jsx';
 
@@ -72,13 +71,6 @@ function TopologyInner() {
     };
   }, [toast]);
 
-  const flowNodes = useMemo(
-    () =>
-      mergePositions(nodesRaw, nodes),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [nodesRaw]
-  );
-
   const flowEdges = useMemo(
     () =>
       linksRaw.map((l) => ({
@@ -109,7 +101,6 @@ function TopologyInner() {
   }, [nodesRaw]);
 
   useEffect(() => {
-    // Keep edges in sync with server links, but preserve any temp edges
     setEdges((cur) => {
       const temp = cur.filter((e) => String(e.id).startsWith('temp-'));
       return [...temp, ...flowEdges];
@@ -117,33 +108,38 @@ function TopologyInner() {
   }, [flowEdges, setEdges]);
 
   useEffect(() => {
-    // Force edges to recompute their path after node position changes
-    // (helps when endpoints look stale after dragging)
     setEdges((eds) => eds.map((e) => ({ ...e })));
   }, [nodes, setEdges]);
 
   useEffect(() => {
     if (!nodes.length) return;
-    // Ensure React Flow recalculates handle positions for default nodes
     for (const n of nodes) updateNodeInternals(n.id);
   }, [nodes, updateNodeInternals]);
 
   return (
-    <div className="page">
-      <div className="page-header">
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <div className="page-title">Topology View</div>
-          <div className="muted">Drag node untuk menyusun diagram seperti Packet Tracer sederhana.</div>
+          <h2 className="text-2xl font-bold leading-7 text-slate-900 sm:truncate sm:text-3xl sm:tracking-tight">
+            Topology View
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">Drag node untuk menyusun diagram seperti Packet Tracer sederhana.</p>
         </div>
-        <div className="page-actions">
-          <Link className="button button-ghost" to="/nodes">
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            className="inline-flex items-center justify-center rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors border border-slate-200"
+            to="/nodes"
+          >
             Tambah Node
           </Link>
-          <Link className="button button-ghost" to="/links">
+          <Link
+            className="inline-flex items-center justify-center rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors border border-slate-200"
+            to="/links"
+          >
             Tambah Link
           </Link>
           <button
-            className="button button-secondary"
+            className="inline-flex items-center justify-center rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 transition-colors border border-slate-200"
             onClick={async () => {
               try {
                 const [n, l] = await Promise.all([apiGet('/api/nodes'), apiGet('/api/links')]);
@@ -160,9 +156,9 @@ function TopologyInner() {
         </div>
       </div>
 
-      <div className="topology-wrap">
+      <div className="relative rounded-xl bg-white shadow-sm border border-slate-200 overflow-hidden min-h-[520px] h-[72vh]">
         {loading ? (
-          <div className="card">Loading topology...</div>
+          <div className="p-6 text-sm font-semibold text-slate-600">Loading topology…</div>
         ) : (
           <ReactFlow
             nodes={nodes}
@@ -263,23 +259,38 @@ function TopologyInner() {
         )}
 
         {selected ? (
-          <div className="sidepanel">
-            <div className="sidepanel-title">{selected.code}</div>
-            <div className="sidepanel-row">
-              <span className="muted">Jenis:</span> {selected.type || '-'}
+          <div className="absolute top-4 right-4 w-[min(380px,calc(100%-2rem))] max-h-[60vh] overflow-auto rounded-xl bg-white/95 backdrop-blur border border-slate-200 shadow-lg shadow-slate-900/10 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold text-slate-900">{selected.code}</div>
+                <div className="mt-0.5 text-xs text-slate-500">Detail node</div>
+              </div>
+              <button
+                className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                onClick={() => setSelected(null)}
+                aria-label="Tutup"
+                type="button"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
             </div>
-            <div className="sidepanel-row">
-              <span className="muted">Nama:</span> {selected.name || '-'}
+
+            <div className="mt-3 space-y-2 text-sm text-slate-700">
+              <div>
+                <span className="text-slate-500">Jenis:</span> {selected.type || '-'}
+              </div>
+              <div>
+                <span className="text-slate-500">Nama:</span> {selected.name || '-'}
+              </div>
+              <div>
+                <span className="text-slate-500">Alamat:</span> {selected.address || '-'}
+              </div>
+              <div>
+                <span className="text-slate-500">Catatan:</span> {selected.notes || '-'}
+              </div>
             </div>
-            <div className="sidepanel-row">
-              <span className="muted">Alamat:</span> {selected.address || '-'}
-            </div>
-            <div className="sidepanel-row">
-              <span className="muted">Catatan:</span> {selected.notes || '-'}
-            </div>
-            <button className="button button-ghost" style={{ width: '100%', marginTop: '1rem' }} onClick={() => setSelected(null)}>
-              Tutup
-            </button>
           </div>
         ) : null}
       </div>

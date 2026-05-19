@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import Modal from '../components/Modal.jsx';
 import { ToastProvider, useToast } from '../components/Toast.jsx';
 import SuratJalanModal from '../components/SuratJalanModal.jsx';
@@ -125,15 +125,15 @@ function IncidentsInner() {
   }
 
   return (
-    <div className="page">
-      <div className="page-header">
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <div className="page-title">Gangguan</div>
-          <div className="muted">Enduser lapor ke NOC, NOC buat surat jalan, teknisi lapor balik setelah selesai.</div>
+          <div className="text-2xl font-bold leading-7 text-slate-900 sm:text-3xl sm:tracking-tight">Gangguan</div>
+          <div className="text-sm text-slate-500">Enduser lapor ke NOC, NOC buat surat jalan, teknisi lapor balik setelah selesai.</div>
         </div>
-        <div className="page-actions">
+        <div className="flex flex-wrap items-center gap-3">
           <button
-            className="button button-primary"
+            className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-sky-600 text-white shadow-sm hover:bg-sky-500"
             onClick={() => {
               setEditing(null);
               setOpen(true);
@@ -144,17 +144,17 @@ function IncidentsInner() {
         </div>
       </div>
 
-      <div className="toolbar">
-        <input className="input" placeholder="Search judul/node/kategori..." value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+        <input className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors" placeholder="Search judul/node/kategori..." value={q} onChange={(e) => setQ(e.target.value)} />
         <div />
-        <button className="button button-secondary" onClick={() => load().then(() => toast.success('Data diperbarui')).catch((e) => toast.error(e.message))}>
+        <button className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200" onClick={() => load().then(() => toast.success('Data diperbarui')).catch((e) => toast.error(e.message))}>
           Refresh
         </button>
       </div>
 
-      <div className="card">
-        <div className="table-wrap">
-          <table className="table">
+      <div className="rounded-xl bg-white shadow-sm border border-slate-200">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[980px] text-left text-sm">
             <thead>
               <tr>
                 <th>Kategori</th>
@@ -163,13 +163,13 @@ function IncidentsInner() {
                 <th>Status</th>
                 <th>Foto</th>
                 <th>Pelapor / Teknisi</th>
-                <th className="right">Aksi</th>
+                <th className="text-right">Aksi</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="muted">
+                  <td colSpan={7} className="text-sm text-slate-500">
                     Belum ada gangguan.
                   </td>
                 </tr>
@@ -178,7 +178,7 @@ function IncidentsInner() {
                   <tr key={it.id}>
                     <td data-label="Kategori">{categoryLabel(it.category)}</td>
                     <td data-label="Judul">{it.title}</td>
-                    <td data-label="Node" className="mono">{it.node_code || '-'}</td>
+                    <td data-label="Node" className="font-mono text-xs font-semibold">{it.node_code || '-'}</td>
                     <td data-label="Status">{statusLabel(it.status)}</td>
                     <td data-label="Foto">
                       {it.photo_path ? (
@@ -191,11 +191,11 @@ function IncidentsInner() {
                     </td>
                     <td data-label="Pelapor">
                       <div>{it.reporter_name || '-'}</div>
-                      <div className="muted">{it.technician_name ? `Teknisi: ${it.technician_name}` : 'Teknisi belum diisi'}</div>
+                      <div className="text-sm text-slate-500">{it.technician_name ? `Teknisi: ${it.technician_name}` : 'Teknisi belum diisi'}</div>
                     </td>
-                    <td data-label="Aksi" className="right">
+                    <td data-label="Aksi" className="text-right">
                       <button
-                        className="button button-ghost"
+                        className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
                         onClick={() => {
                           setEditing(it);
                           setOpen(true);
@@ -204,7 +204,7 @@ function IncidentsInner() {
                         Edit
                       </button>
                       <button
-                        className="button button-ghost"
+                        className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
                         onClick={() => {
                           const node = it.node_id ? nodes.find((n) => Number(n.id) === Number(it.node_id)) : null;
                           setSjNode(node);
@@ -215,7 +215,7 @@ function IncidentsInner() {
                         Surat Jalan
                       </button>
                       <button
-                        className="button button-secondary"
+                        className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200"
                         onClick={() => {
                           setSendItem(it);
                           setSendOpen(true);
@@ -223,14 +223,14 @@ function IncidentsInner() {
                       >
                         Email
                       </button>
-                      <a className="button button-ghost" href={whatsappUrl(it)} target="_blank" rel="noreferrer">
+                      <a className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-white text-slate-700 hover:bg-slate-50 border border-slate-200" href={whatsappUrl(it)} target="_blank" rel="noreferrer">
                         WhatsApp
                       </a>
-                      <a className="button button-ghost" href={telegramShareUrl(it)} target="_blank" rel="noreferrer">
+                      <a className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-white text-slate-700 hover:bg-slate-50 border border-slate-200" href={telegramShareUrl(it)} target="_blank" rel="noreferrer">
                         Telegram
                       </a>
                       <button
-                        className="button button-secondary"
+                        className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200"
                         onClick={() => {
                           setTelegramItem(it);
                           setTelegramOpen(true);
@@ -239,7 +239,7 @@ function IncidentsInner() {
                         Bot TG
                       </button>
                       <button
-                        className="button button-primary"
+                        className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-sky-600 text-white shadow-sm hover:bg-sky-500"
                         onClick={() => {
                           setCompleteItem(it);
                           setCompleteOpen(true);
@@ -247,11 +247,11 @@ function IncidentsInner() {
                       >
                         Laporan Balik
                       </button>
-                      <a className="button button-ghost" href={`/rekam-kerja?incident_id=${it.id}`}>
+                      <a className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-white text-slate-700 hover:bg-slate-50 border border-slate-200" href={`/rekam-kerja?incident_id=${it.id}`}>
                         Rekam Kerja
                       </a>
                       <button
-                        className="button button-danger"
+                        className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-red-600 text-white hover:bg-red-500"
                         onClick={async () => {
                           if (!confirm(`Hapus gangguan: ${it.title}?`)) return;
                           try {
@@ -359,7 +359,7 @@ function IncidentModal({ open, onClose, nodes, initial, onSubmit, submitting }) 
   return (
     <Modal open={open} onClose={onClose} title={initial ? `Edit Gangguan #${initial.id}` : 'Tambah Gangguan'} width={860}>
       <form
-        className="form"
+        className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
           onSubmit({
@@ -368,17 +368,17 @@ function IncidentModal({ open, onClose, nodes, initial, onSubmit, submitting }) 
           });
         }}
       >
-        <div className="grid2">
-          <div className="field">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
             <label>Kategori</label>
-            <select className="input" value={values.category} onChange={(e) => setValues((v) => ({ ...v, category: e.target.value }))} required>
+            <select className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors" value={values.category} onChange={(e) => setValues((v) => ({ ...v, category: e.target.value }))} required>
               <option value="kerusakan">Kerusakan</option>
               <option value="internet_mati">Internet Mati</option>
             </select>
           </div>
-          <div className="field">
+          <div className="space-y-1.5">
             <label>Node (opsional)</label>
-            <select className="input" value={values.node_id} onChange={(e) => setValues((v) => ({ ...v, node_id: e.target.value }))}>
+            <select className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors" value={values.node_id} onChange={(e) => setValues((v) => ({ ...v, node_id: e.target.value }))}>
               <option value="">Tidak ada</option>
               {nodes.map((n) => (
                 <option key={n.id} value={n.id}>
@@ -389,76 +389,76 @@ function IncidentModal({ open, onClose, nodes, initial, onSubmit, submitting }) 
           </div>
         </div>
 
-        <div className="field">
+        <div className="space-y-1.5">
           <label>Nama Admin NOC</label>
-          <input className="input" value={values.noc_admin_name} onChange={(e) => setValues((v) => ({ ...v, noc_admin_name: e.target.value }))} />
+          <input className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors" value={values.noc_admin_name} onChange={(e) => setValues((v) => ({ ...v, noc_admin_name: e.target.value }))} />
         </div>
 
-        <div className="field">
+        <div className="space-y-1.5">
           <label>Judul</label>
-          <input className="input" value={values.title} onChange={(e) => setValues((v) => ({ ...v, title: e.target.value }))} required />
+          <input className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors" value={values.title} onChange={(e) => setValues((v) => ({ ...v, title: e.target.value }))} required />
         </div>
 
-        <div className="field">
+        <div className="space-y-1.5">
           <label>Deskripsi</label>
-          <textarea className="input" rows={4} value={values.description} onChange={(e) => setValues((v) => ({ ...v, description: e.target.value }))} />
+          <textarea className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors" rows={4} value={values.description} onChange={(e) => setValues((v) => ({ ...v, description: e.target.value }))} />
         </div>
 
-        <div className="grid2">
-          <div className="field">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
             <label>Nama Pelapor</label>
-            <input className="input" value={values.reporter_name} onChange={(e) => setValues((v) => ({ ...v, reporter_name: e.target.value }))} />
+            <input className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors" value={values.reporter_name} onChange={(e) => setValues((v) => ({ ...v, reporter_name: e.target.value }))} />
           </div>
-          <div className="field">
+          <div className="space-y-1.5">
             <label>Kontak Pelapor</label>
-            <input className="input" value={values.reporter_contact} onChange={(e) => setValues((v) => ({ ...v, reporter_contact: e.target.value }))} />
+            <input className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors" value={values.reporter_contact} onChange={(e) => setValues((v) => ({ ...v, reporter_contact: e.target.value }))} />
           </div>
         </div>
 
-        <div className="field">
+        <div className="space-y-1.5">
           <label>Gambar Gangguan (opsional)</label>
           <input
-            className="input"
+            className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors"
             type="file"
             accept="image/*"
             onChange={(e) => setValues((v) => ({ ...v, photo: e.target.files?.[0] || null }))}
           />
           {initial?.photo_path ? (
-            <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+            <div className="mt-2 text-xs text-slate-500">
               Foto saat ini: <a className="link" href={initial.photo_path} target="_blank" rel="noreferrer">lihat gambar</a>
             </div>
           ) : null}
         </div>
 
-        <div className="grid2">
-          <div className="field">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
             <label>Teknisi Lapangan</label>
-            <input className="input" value={values.technician_name} onChange={(e) => setValues((v) => ({ ...v, technician_name: e.target.value }))} />
+            <input className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors" value={values.technician_name} onChange={(e) => setValues((v) => ({ ...v, technician_name: e.target.value }))} />
           </div>
-          <div className="field">
+          <div className="space-y-1.5">
             <label>WhatsApp Teknisi</label>
-            <input className="input" value={values.technician_contact} onChange={(e) => setValues((v) => ({ ...v, technician_contact: e.target.value }))} placeholder="Contoh: 0812..." />
+            <input className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors" value={values.technician_contact} onChange={(e) => setValues((v) => ({ ...v, technician_contact: e.target.value }))} placeholder="Contoh: 0812..." />
           </div>
         </div>
 
-        <div className="field">
+        <div className="space-y-1.5">
           <label>Email Teknisi</label>
-          <input className="input" value={values.technician_email} onChange={(e) => setValues((v) => ({ ...v, technician_email: e.target.value }))} />
+          <input className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors" value={values.technician_email} onChange={(e) => setValues((v) => ({ ...v, technician_email: e.target.value }))} />
         </div>
 
-        <div className="field">
+        <div className="space-y-1.5">
           <label>Instruksi NOC / Catatan Surat Jalan</label>
-          <textarea className="input" rows={3} value={values.work_order_notes} onChange={(e) => setValues((v) => ({ ...v, work_order_notes: e.target.value }))} />
+          <textarea className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors" rows={3} value={values.work_order_notes} onChange={(e) => setValues((v) => ({ ...v, work_order_notes: e.target.value }))} />
         </div>
 
-        <div className="field">
+        <div className="space-y-1.5">
           <label>Laporan Balik Teknisi</label>
-          <textarea className="input" rows={3} value={values.technician_report} onChange={(e) => setValues((v) => ({ ...v, technician_report: e.target.value }))} />
+          <textarea className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors" rows={3} value={values.technician_report} onChange={(e) => setValues((v) => ({ ...v, technician_report: e.target.value }))} />
         </div>
 
-        <div className="field">
+        <div className="space-y-1.5">
           <label>Status</label>
-          <select className="input" value={values.status} onChange={(e) => setValues((v) => ({ ...v, status: e.target.value }))} required>
+          <select className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors" value={values.status} onChange={(e) => setValues((v) => ({ ...v, status: e.target.value }))} required>
             <option value="reported">Laporan User</option>
             <option value="assigned">Surat Jalan ke Teknisi</option>
             <option value="in_progress">Dikerjakan Teknisi</option>
@@ -467,11 +467,11 @@ function IncidentModal({ open, onClose, nodes, initial, onSubmit, submitting }) 
           </select>
         </div>
 
-        <div className="form-actions">
-          <button className="button button-primary" disabled={submitting}>
+        <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-slate-100">
+          <button className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-sky-600 text-white shadow-sm hover:bg-sky-500" disabled={submitting}>
             {submitting ? 'Menyimpan...' : 'Simpan'}
           </button>
-          <button type="button" className="button button-ghost" onClick={onClose} disabled={submitting}>
+          <button type="button" className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-white text-slate-700 hover:bg-slate-50 border border-slate-200" onClick={onClose} disabled={submitting}>
             Batal
           </button>
         </div>
@@ -497,10 +497,10 @@ function SendEmailModal({ open, onClose, item }) {
   return (
     <Modal open={open} onClose={onClose} title={item ? `Kirim Email Gangguan #${item.id}` : 'Kirim Email'} width={760}>
       {!item ? (
-        <div className="card">Gangguan tidak dipilih.</div>
+        <div className="rounded-xl bg-white shadow-sm border border-slate-200">Gangguan tidak dipilih.</div>
       ) : (
         <form
-          className="form"
+          className="space-y-4"
           onSubmit={async (e) => {
             e.preventDefault();
             try {
@@ -515,28 +515,28 @@ function SendEmailModal({ open, onClose, item }) {
             }
           }}
         >
-          <div className="field">
+          <div className="space-y-1.5">
             <label>To</label>
-            <input className="input" value={to} onChange={(e) => setTo(e.target.value)} placeholder="contoh: admin@company.com" required />
+            <input className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors" value={to} onChange={(e) => setTo(e.target.value)} placeholder="contoh: admin@company.com" required />
           </div>
-          <div className="field">
+          <div className="space-y-1.5">
             <label>Subject (opsional)</label>
-            <input className="input" value={subject} onChange={(e) => setSubject(e.target.value)} />
+            <input className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors" value={subject} onChange={(e) => setSubject(e.target.value)} />
           </div>
-          <div className="field">
+          <div className="space-y-1.5">
             <label>Pesan (opsional)</label>
-            <textarea className="input" rows={4} value={message} onChange={(e) => setMessage(e.target.value)} />
+            <textarea className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors" rows={4} value={message} onChange={(e) => setMessage(e.target.value)} />
           </div>
 
-          <div className="form-actions">
-            <button className="button button-primary" disabled={sending}>
+          <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-slate-100">
+            <button className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-sky-600 text-white shadow-sm hover:bg-sky-500" disabled={sending}>
               {sending ? 'Mengirim...' : 'Kirim'}
             </button>
-            <button type="button" className="button button-ghost" onClick={onClose} disabled={sending}>
+            <button type="button" className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-white text-slate-700 hover:bg-slate-50 border border-slate-200" onClick={onClose} disabled={sending}>
               Batal
             </button>
           </div>
-          <div className="muted" style={{ fontSize: 12 }}>
+          <div className="text-xs text-slate-500">
             Lampiran: Surat Jalan PDF otomatis dari data gangguan.
           </div>
         </form>
@@ -558,10 +558,10 @@ function CompleteModal({ open, onClose, item, onDone }) {
   return (
     <Modal open={open} onClose={onClose} title={item ? `Laporan Balik Teknisi #${item.id}` : 'Laporan Balik'} width={760}>
       {!item ? (
-        <div className="card">Gangguan tidak dipilih.</div>
+        <div className="rounded-xl bg-white shadow-sm border border-slate-200">Gangguan tidak dipilih.</div>
       ) : (
         <form
-          className="form"
+          className="space-y-4"
           onSubmit={async (e) => {
             e.preventDefault();
             try {
@@ -580,10 +580,10 @@ function CompleteModal({ open, onClose, item, onDone }) {
             }
           }}
         >
-          <div className="field">
+          <div className="space-y-1.5">
             <label>Hasil Perbaikan</label>
             <textarea
-              className="input"
+              className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors"
               rows={6}
               value={report}
               onChange={(e) => setReport(e.target.value)}
@@ -591,11 +591,11 @@ function CompleteModal({ open, onClose, item, onDone }) {
               required
             />
           </div>
-          <div className="form-actions">
-            <button className="button button-primary" disabled={saving}>
+          <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-slate-100">
+            <button className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-sky-600 text-white shadow-sm hover:bg-sky-500" disabled={saving}>
               {saving ? 'Menyimpan...' : 'Simpan Selesai'}
             </button>
-            <button type="button" className="button button-ghost" onClick={onClose} disabled={saving}>
+            <button type="button" className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-white text-slate-700 hover:bg-slate-50 border border-slate-200" onClick={onClose} disabled={saving}>
               Batal
             </button>
           </div>
@@ -620,10 +620,10 @@ function TelegramBotModal({ open, onClose, item }) {
   return (
     <Modal open={open} onClose={onClose} title={item ? `Kirim Telegram Bot #${item.id}` : 'Kirim Telegram Bot'} width={760}>
       {!item ? (
-        <div className="card">Gangguan tidak dipilih.</div>
+        <div className="rounded-xl bg-white shadow-sm border border-slate-200">Gangguan tidak dipilih.</div>
       ) : (
         <form
-          className="form"
+          className="space-y-4"
           onSubmit={async (e) => {
             e.preventDefault();
             try {
@@ -641,23 +641,23 @@ function TelegramBotModal({ open, onClose, item }) {
             }
           }}
         >
-          <div className="field">
+          <div className="space-y-1.5">
             <label>Chat ID Telegram</label>
-            <input className="input" value={chatId} onChange={(e) => setChatId(e.target.value)} required />
+            <input className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors" value={chatId} onChange={(e) => setChatId(e.target.value)} required />
           </div>
-          <div className="field">
+          <div className="space-y-1.5">
             <label>Pesan</label>
-            <textarea className="input" rows={6} value={message} onChange={(e) => setMessage(e.target.value)} required />
+            <textarea className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors" rows={6} value={message} onChange={(e) => setMessage(e.target.value)} required />
           </div>
-          <div className="form-actions">
-            <button className="button button-primary" disabled={sending}>
+          <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-slate-100">
+            <button className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-sky-600 text-white shadow-sm hover:bg-sky-500" disabled={sending}>
               {sending ? 'Mengirim...' : 'Kirim Telegram'}
             </button>
-            <button type="button" className="button button-ghost" onClick={onClose} disabled={sending}>
+            <button type="button" className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-white text-slate-700 hover:bg-slate-50 border border-slate-200" onClick={onClose} disabled={sending}>
               Batal
             </button>
           </div>
-          <div className="muted" style={{ fontSize: 12 }}>
+          <div className="text-xs text-slate-500">
             Pastikan TELEGRAM_BOT_TOKEN sudah diisi di server/.env.
           </div>
         </form>
@@ -673,3 +673,4 @@ export default function IncidentsPage() {
     </ToastProvider>
   );
 }
+

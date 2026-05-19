@@ -1,6 +1,7 @@
 import React from 'react';
+import { roleLabel } from '../lib/auth.js';
 
-export default function Header({ onToggleSidebar, user }) {
+export default function Header({ onToggleSidebar, onLogout, user }) {
   return (
     <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 shadow-sm sm:px-6 lg:px-8">
       <div className="flex items-center gap-4 lg:hidden">
@@ -17,7 +18,7 @@ export default function Header({ onToggleSidebar, user }) {
         <div className="font-semibold text-slate-900 truncate">Dashboard</div>
       </div>
       
-      <div className="hidden lg:flex lg:flex-1 lg:items-center lg:justify-between">
+      <div className="hidden lg:flex lg:flex-1 lg:items-center lg:gap-3">
         <div className="text-xl font-semibold text-slate-800">Dashboard Operasional</div>
       </div>
 
@@ -31,6 +32,21 @@ export default function Header({ onToggleSidebar, user }) {
             {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
           </div>
         </div>
+
+        <button
+          type="button"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-slate-900 text-white shadow-sm transition-colors hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500"
+          onClick={onLogout}
+          aria-label="Logout"
+          title="Logout"
+        >
+          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
+          <span className="sr-only">Logout</span>
+        </button>
       </div>
     </header>
   );
