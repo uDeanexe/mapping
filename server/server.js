@@ -50,14 +50,17 @@ ensureDir(path.resolve(UPLOAD_DIR, 'incidents'));
 ensureDir(path.resolve(UPLOAD_DIR, 'reports'));
 ensureDir(path.resolve(UPLOAD_DIR, 'temp'));
 
+let rawDb = null;
+let db = null;
+
 async function bootstrap() {
   await ensureDatabaseExists();
 
-  const rawDb = openDb(path.resolve(__dirname, DB_PATH));
-  const db = promisifyDb(rawDb);
+  rawDb = openDb(path.resolve(__dirname, DB_PATH));
+  db = promisifyDb(rawDb);
   const schemaPath = path.resolve(__dirname, 'database', 'schema.sql');
   await runMigrations(db, schemaPath);
-  return { rawDb };
+  return;
 }
 
 app.use(
@@ -1199,7 +1202,7 @@ app.delete('/api/links/:id', async (req, res) => {
 });
 
 bootstrap()
-  .then(({ rawDb }) => {
+  .then(() => {
     const server = app.listen(PORT, () => {
       // eslint-disable-next-line no-console
       console.log(`API running on http://localhost:${PORT}`);
