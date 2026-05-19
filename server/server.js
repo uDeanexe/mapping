@@ -31,7 +31,7 @@ const { createTransport } = require('./lib/email');
 const app = express();
 app.disable('x-powered-by');
 
-const PORT = Number(process.env.PORT || 3001);
+const PORT = Number(process.env.PORT || 3006);
 const DB_PATH = process.env.DATABASE_PATH || './database/app.db';
 const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
 const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:5173';
@@ -50,13 +50,14 @@ ensureDir(path.resolve(UPLOAD_DIR, 'incidents'));
 ensureDir(path.resolve(UPLOAD_DIR, 'reports'));
 ensureDir(path.resolve(UPLOAD_DIR, 'temp'));
 
-const rawDb = openDb(path.resolve(__dirname, DB_PATH));
-const db = promisifyDb(rawDb);
-
 async function bootstrap() {
   await ensureDatabaseExists();
+
+  const rawDb = openDb(path.resolve(__dirname, DB_PATH));
+  const db = promisifyDb(rawDb);
   const schemaPath = path.resolve(__dirname, 'database', 'schema.sql');
   await runMigrations(db, schemaPath);
+  return { rawDb };
 }
 
 app.use(
@@ -1198,7 +1199,7 @@ app.delete('/api/links/:id', async (req, res) => {
 });
 
 bootstrap()
-  .then(() => {
+  .then(({ rawDb }) => {
     const server = app.listen(PORT, () => {
       // eslint-disable-next-line no-console
       console.log(`API running on http://localhost:${PORT}`);
@@ -1212,6 +1213,11 @@ bootstrap()
         process.exit(1);
       }
       throw error;
+    });
+    server.on('close', async () => {
+      try {
+        await rawDb.destroy?.();
+      } catch (_) {}
     });
   })
   .catch((e) => {

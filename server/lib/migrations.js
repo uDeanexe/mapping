@@ -126,7 +126,7 @@ function migrationList(schemaPathAbs) {
     {
       id: '006_optional_seed_demo',
       async up(db) {
-        if (String(process.env.AUTO_SEED_DEMO || '0') !== '1') return;
+        if (String(process.env.AUTO_SEED_DEMO || '0').trim() !== '1') return;
         const nodeCountRow = await db.get('SELECT COUNT(*) AS total FROM nodes');
         const nodeCount = Number(nodeCountRow?.total || 0);
         if (nodeCount > 0) return;
@@ -170,33 +170,33 @@ async function ensureDatabaseExists() {
       ? 'sqlserver'
       : 'sqlite';
   if (dialect === 'sqlite') return;
-  if (String(process.env.ALLOW_DB_CREATE || '0') !== '1') return;
+  if (String(process.env.ALLOW_DB_CREATE || '0').trim() !== '1') return;
 
   const dbName = env.database;
   if (!dbName) return;
 
-  const adminEnv =
+  const adminConfig =
     dialect === 'mysql'
       ? {
-          DB_CONNECTION: 'mysql',
-          DB_HOST: env.host,
-          DB_PORT: String(env.port),
-          DB_DATABASE: 'mysql',
-          DB_USER: env.user,
-          DB_PASSWORD: env.password
+          connection: 'mysql',
+          host: env.host,
+          port: env.port,
+          database: 'mysql',
+          user: env.user,
+          password: env.password
         }
       : {
-          DB_CONNECTION: 'sqlserver',
-          DB_HOST: env.host,
-          DB_PORT: String(env.port),
-          DB_DATABASE: 'master',
-          DB_USER: env.user,
-          DB_PASSWORD: env.password,
-          DB_ENCRYPT: env.encrypt ? '1' : '0',
-          DB_TRUST_SERVER_CERTIFICATE: env.trustServerCertificate ? '1' : '0'
+          connection: 'sqlserver',
+          host: env.host,
+          port: env.port,
+          database: 'master',
+          user: env.user,
+          password: env.password,
+          encrypt: env.encrypt,
+          trustServerCertificate: env.trustServerCertificate
         };
 
-  const rawAdmin = openDb(adminEnv);
+  const rawAdmin = openDb(adminConfig);
   const adminDb = promisifyDb(rawAdmin);
 
   try {
@@ -228,4 +228,3 @@ async function runMigrations(db, schemaPathAbs) {
 }
 
 module.exports = { ensureDatabaseExists, runMigrations };
-
