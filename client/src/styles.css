@@ -247,7 +247,7 @@ select:focus {
   align-items: flex-start;
   justify-content: center;
   padding: 2.5rem 1rem;
-  z-index: 50;
+  z-index: 3000;
 }
 
 .modal {
