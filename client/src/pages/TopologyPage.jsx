@@ -277,7 +277,7 @@ function TopologyInner() {
             <div className="sidepanel-row">
               <span className="muted">Catatan:</span> {selected.notes || '-'}
             </div>
-            <button className="button button-ghost" onClick={() => setSelected(null)}>
+            <button className="button button-ghost" style={{ width: '100%', marginTop: '1rem' }} onClick={() => setSelected(null)}>
               Tutup
             </button>
           </div>

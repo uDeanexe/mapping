@@ -46,107 +46,161 @@ export default function DashboardPage() {
   }, [nodes]);
 
   return (
-    <div className="page dashboard-page">
-      <div className="page-header">
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <div className="page-title">Dashboard</div>
-          <div className="muted">Ringkasan jaringan, gangguan, dan pekerjaan lapangan.</div>
+          <h2 className="text-2xl font-bold leading-7 text-slate-900 sm:truncate sm:text-3xl sm:tracking-tight">
+            Ringkasan Jaringan
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Pantau status operasional, gangguan, dan pekerjaan lapangan.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link to="/gangguan" className="inline-flex items-center justify-center rounded-lg bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 hover:bg-red-100 transition-colors">
+            Buka Gangguan
+          </Link>
+          <Link to="/rekam-kerja" className="inline-flex items-center justify-center rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-sky-500 transition-colors">
+            Rekam Kerja
+          </Link>
         </div>
       </div>
 
-      {error ? <div className="alert-error">{error}</div> : null}
+      {error ? (
+        <div className="rounded-lg bg-red-50 p-4 text-sm font-medium text-red-800 border border-red-200">
+          {error}
+        </div>
+      ) : null}
 
-      <div className="card dashboard-map-card" style={{ marginBottom: 24, overflow: 'hidden', padding: 0 }}>
-        <div style={{ height: 420, width: '100%' }}>
-          <MapContainer center={center} zoom={15} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
-            <TileLayer
-              attribution="&copy; OpenStreetMap contributors"
-              url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-            />
-            {nodes
-              .filter((n) => Number.isFinite(n.latitude) && Number.isFinite(n.longitude))
-              .map((node) => (
-                <Marker key={node.id} position={[Number(node.latitude), Number(node.longitude)]} icon={markerIcon(node.type)}>
-                  <Popup>
-                    <div style={{ fontWeight: 600, color: '#0f172a' }}>{node.code}</div>
-                    <div style={{ color: '#64748b', fontSize: 12 }}>{node.name || '-'}</div>
-                  </Popup>
-                </Marker>
-              ))}
-          </MapContainer>
+      {/* Stat Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="flex flex-col rounded-xl bg-white p-6 shadow-sm border border-slate-200 transition hover:shadow-md hover:border-sky-300">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium text-slate-500">Data Node</h3>
+            <div className="rounded-lg bg-blue-50 p-2 text-blue-600">
+              <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+            </div>
+          </div>
+          <div className="mt-4 text-3xl font-bold text-slate-900">{totals.nodes ?? '-'}</div>
+        </div>
+        
+        <div className="flex flex-col rounded-xl bg-white p-6 shadow-sm border border-slate-200 transition hover:shadow-md hover:border-emerald-300">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium text-slate-500">Data Link</h3>
+            <div className="rounded-lg bg-emerald-50 p-2 text-emerald-600">
+              <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+            </div>
+          </div>
+          <div className="mt-4 text-3xl font-bold text-slate-900">{totals.links ?? '-'}</div>
+        </div>
+
+        <div className="flex flex-col rounded-xl bg-white p-6 shadow-sm border border-slate-200 transition hover:shadow-md hover:border-red-300">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium text-slate-500">Gangguan Aktif</h3>
+            <div className="rounded-lg bg-red-50 p-2 text-red-600">
+              <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+            </div>
+          </div>
+          <div className="mt-4 text-3xl font-bold text-slate-900">{totals.incidents ?? '-'}</div>
+        </div>
+
+        <div className="flex flex-col rounded-xl bg-white p-6 shadow-sm border border-slate-200 transition hover:shadow-md hover:border-amber-300">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium text-slate-500">Rekam Kerja</h3>
+            <div className="rounded-lg bg-amber-50 p-2 text-amber-600">
+              <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+            </div>
+          </div>
+          <div className="mt-4 text-3xl font-bold text-slate-900">{totals.work_reports ?? '-'}</div>
         </div>
       </div>
 
-      <div className="stat-grid">
-        <div className="stat-card">
-          <div className="stat-header">
-            <div className="muted">Data Node</div>
-            <svg width="20" height="20" fill="none" stroke="#3b82f6" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M12 5l7 7-7 7" /></svg>
-          </div>
-          <div className="stat-value">{totals.nodes ?? '-'}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-header">
-            <div className="muted">Data Link</div>
-            <svg width="20" height="20" fill="none" stroke="#10b981" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
-          </div>
-          <div className="stat-value">{totals.links ?? '-'}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-header">
-            <div className="muted">Gangguan</div>
-            <svg width="20" height="20" fill="none" stroke="#ef4444" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-          </div>
-          <div className="stat-value">{totals.incidents ?? '-'}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-header">
-            <div className="muted">Rekam Kerja</div>
-            <svg width="20" height="20" fill="none" stroke="#f59e0b" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
-          </div>
-          <div className="stat-value">{totals.work_reports ?? '-'}</div>
-        </div>
+      {/* Map Container */}
+      <div className="rounded-xl bg-white shadow-sm border border-slate-200 overflow-hidden relative z-10 h-[50vh] min-h-[400px]">
+        <MapContainer center={center} zoom={15} scrollWheelZoom={false} className="w-full h-full">
+          <TileLayer
+            attribution="&copy; OpenStreetMap contributors"
+            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+          />
+          {nodes
+            .filter((n) => Number.isFinite(n.latitude) && Number.isFinite(n.longitude))
+            .map((node) => (
+              <Marker key={node.id} position={[Number(node.latitude), Number(node.longitude)]} icon={markerIcon(node.type)}>
+                <Popup className="rounded-xl">
+                  <div className="font-semibold text-slate-900">{node.code}</div>
+                  <div className="text-xs text-slate-500 mt-1">{node.name || '-'}</div>
+                </Popup>
+              </Marker>
+            ))}
+        </MapContainer>
       </div>
 
-      <div className="mobile-quick-actions">
-        <Link className="button button-primary" to="/gangguan">Buka Gangguan</Link>
-        <Link className="button button-secondary" to="/rekam-kerja">Rekam Kerja</Link>
-        <Link className="button button-ghost" to="/map">Lihat Map</Link>
-      </div>
-
-      <div className="grid2">
-        <div className="card">
-          <h3>Status Gangguan</h3>
-          <div className="report-list">
-            {(data?.incident_by_status || []).length === 0 ? (
-              <div className="muted">Belum ada gangguan.</div>
-            ) : (
-              data.incident_by_status.map((row) => (
-                <div className="status-row" key={row.status}>
-                  <span>{row.status}</span>
-                  <strong>{row.total}</strong>
-                </div>
-              ))
-            )}
+      {/* Tables / Lists Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Status Gangguan */}
+        <div className="rounded-xl bg-white shadow-sm border border-slate-200 flex flex-col">
+          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="font-semibold text-slate-800">Status Gangguan</h3>
+          </div>
+          <div className="p-6 flex-1">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-full text-left text-sm">
+                <tbody>
+                  {(data?.incident_by_status || []).length === 0 ? (
+                    <tr><td className="text-slate-500 py-2">Belum ada gangguan.</td></tr>
+                  ) : (
+                    data.incident_by_status.map((row) => (
+                      <tr key={row.status} className="border-b border-slate-50 last:border-0">
+                        <td className="py-3 pr-4 font-medium text-slate-700 capitalize">{String(row.status).replace('_', ' ')}</td>
+                        <td className="py-3 pl-4 text-right">
+                          <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-800">
+                            {row.total}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
-        <div className="card">
-          <h3>Gangguan Terbaru</h3>
-          <div className="report-list">
-            {(data?.latest_incidents || []).length === 0 ? (
-              <div className="muted">Belum ada gangguan.</div>
-            ) : (
-              data.latest_incidents.map((row) => (
-                <div className="status-row" key={row.id}>
-                  <span>
-                    #{row.id} {row.title}
-                    <span className="muted"> | {row.node_code || '-'}</span>
-                  </span>
-                  <strong>{row.status}</strong>
-                </div>
-              ))
-            )}
+        {/* Gangguan Terbaru */}
+        <div className="rounded-xl bg-white shadow-sm border border-slate-200 flex flex-col">
+          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="font-semibold text-slate-800">Gangguan Terbaru</h3>
+          </div>
+          <div className="p-6 flex-1">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-full text-left text-sm">
+                <tbody>
+                  {(data?.latest_incidents || []).length === 0 ? (
+                    <tr><td className="text-slate-500 py-2">Belum ada laporan terbaru.</td></tr>
+                  ) : (
+                    data.latest_incidents.map((row) => (
+                      <tr key={row.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors">
+                        <td className="py-3 pr-4">
+                          <div className="font-medium text-slate-800">#{row.id} - {row.title}</div>
+                          <div className="text-xs text-slate-500 mt-0.5">{row.node_code || 'Tanpa Node'}</div>
+                        </td>
+                        <td className="py-3 pl-4 text-right whitespace-nowrap">
+                          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize
+                            ${row.status === 'reported' ? 'bg-red-100 text-red-800' : ''}
+                            ${row.status === 'assigned' ? 'bg-amber-100 text-amber-800' : ''}
+                            ${row.status === 'in_progress' ? 'bg-blue-100 text-blue-800' : ''}
+                            ${row.status === 'completed' || row.status === 'closed' ? 'bg-emerald-100 text-emerald-800' : ''}
+                            ${!['reported','assigned','in_progress','completed','closed'].includes(row.status) ? 'bg-slate-100 text-slate-800' : ''}
+                          `}>
+                            {String(row.status).replace('_', ' ')}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
