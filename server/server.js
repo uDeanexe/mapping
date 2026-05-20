@@ -31,11 +31,24 @@ const { createTransport } = require('./lib/email');
 const app = express();
 app.disable('x-powered-by');
 
-const PORT = Number(process.env.PORT || 3006);
+const PORT = Number(process.env.PORT || 3010);
 const DB_PATH = process.env.DATABASE_PATH || './database/app.db';
 const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
 const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:5173';
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
+const BASE_PATH = `/${String(process.env.BASE_PATH || '').trim().replace(/^\/+|\/+$/g, '')}`.replace(/\/+$/g, '');
+const EFFECTIVE_BASE_PATH = BASE_PATH === '/' ? '' : BASE_PATH;
+const API_PREFIX = `${EFFECTIVE_BASE_PATH}/api`;
+const UPLOADS_PREFIX = `${EFFECTIVE_BASE_PATH}/uploads`;
+const SERVE_CLIENT = String(process.env.SERVE_CLIENT || '').toLowerCase();
+const shouldServeClient =
+  SERVE_CLIENT === '1' ||
+  SERVE_CLIENT === 'true' ||
+  String(process.env.NODE_ENV || '').toLowerCase() === 'production';
+const SERVE_CLIENT =
+  String(process.env.SERVE_CLIENT || '').toLowerCase() === '1' ||
+  String(process.env.SERVE_CLIENT || '').toLowerCase() === 'true' ||
+  String(process.env.NODE_ENV || '').toLowerCase() === 'production';
 
 if (String(process.env.NODE_ENV || '').toLowerCase() === 'production') {
   if (JWT_SECRET === 'dev-secret-change-me' || JWT_SECRET.length < 32) {
@@ -89,6 +102,20 @@ const loginLimiter = rateLimit({
   message: { message: 'Terlalu banyak percobaan login, coba lagi sebentar.' }
 });
 app.use('/uploads', express.static(path.resolve(__dirname, UPLOAD_DIR)));
+// Support mounting under subpath (ex: /cordinat/uploads)
+if (UPLOADS_PREFIX && UPLOADS_PREFIX !== '/uploads') {
+  app.use(UPLOADS_PREFIX, express.static(path.resolve(__dirname, UPLOAD_DIR)));
+}
+
+// Serve React build (client/dist) in production (or when SERVE_CLIENT=1).
+// Keep this before the SPA fallback (added near the bottom) and after /uploads.
+if (shouldServeClient) {
+  const clientDist = path.resolve(__dirname, '..', 'client', 'dist');
+  // When mounted under a subpath (ex: /cordinat), serve the SPA build under that prefix.
+  // Vite build should be produced with VITE_BASE_PATH=/cordinat/ so assets resolve correctly.
+  const mountPath = EFFECTIVE_BASE_PATH || '/';
+  app.use(mountPath, express.static(clientDist));
+}
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, path.resolve(__dirname, UPLOAD_DIR, 'nodes')),
@@ -262,6 +289,15 @@ async function getIncidentWithNode(id) {
 }
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+// If running behind a reverse-proxy path (ex: group.jonusa.net/cordinat),
+// expose the API under `${BASE_PATH}/api/*` as well to avoid clashing with other apps.
+if (API_PREFIX && API_PREFIX !== '/api') {
+  app.use(API_PREFIX, (req, res) => {
+    req.url = `/api${req.url}`;
+    return app.handle(req, res);
+  });
+}
 
 app.post('/api/auth/login', loginLimiter, async (req, res) => {
   try {
@@ -1203,6 +1239,18 @@ app.delete('/api/links/:id', async (req, res) => {
 
 bootstrap()
   .then(() => {
+    // SPA fallback (React Router) for non-API routes in production.
+    if (shouldServeClient) {
+      const clientIndex = path.resolve(__dirname, '..', 'client', 'dist', 'index.html');
+      app.get('*', (req, res, next) => {
+        // Only handle routes under the configured base path (if any).
+        if (EFFECTIVE_BASE_PATH && !req.path.startsWith(EFFECTIVE_BASE_PATH)) return next();
+        if (req.path.startsWith('/api') || req.path.startsWith(API_PREFIX)) return next();
+        if (req.path.startsWith('/uploads') || req.path.startsWith(UPLOADS_PREFIX)) return next();
+        res.sendFile(clientIndex);
+      });
+    }
+
     const server = app.listen(PORT, () => {
       // eslint-disable-next-line no-console
       console.log(`API running on http://localhost:${PORT}`);
