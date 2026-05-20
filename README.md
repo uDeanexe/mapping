@@ -31,8 +31,9 @@ npm run dev
 Backend: `server/.env`
 
 - `PORT` (default `3010`)
-- `DB_CONNECTION` (`sqlite`, `mysql`, atau `sqlserver`; default `sqlite`)
+- `DB_CONNECTION` (`sqlite`, `mysql`, `postgres`, atau `sqlserver`; default `sqlite`)
 - `DATABASE_PATH` (default `./database/app.db`)
+- `DATABASE_URL` (untuk `postgres`, contoh Supabase)
 - `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USER`, `DB_PASSWORD` untuk MySQL/SQL Server
 - `DB_ENCRYPT`, `DB_TRUST_SERVER_CERTIFICATE` untuk SQL Server
 - `UPLOAD_DIR` (default `./uploads`)

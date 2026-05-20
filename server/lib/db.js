@@ -11,9 +11,16 @@ function connectionFromEnv(env = process.env) {
   const connection = (env.DB_CONNECTION || env.DATABASE_CONNECTION || 'sqlite').toLowerCase();
   return {
     connection,
+    url: env.DATABASE_URL || env.DB_URL || env.POSTGRES_URL || '',
     sqlitePath: env.DATABASE_PATH || './database/app.db',
     host: env.DB_HOST || '127.0.0.1',
-    port: env.DB_PORT ? Number(env.DB_PORT) : connection === 'sqlserver' ? 1433 : 3306,
+    port: env.DB_PORT
+      ? Number(env.DB_PORT)
+      : ['postgres', 'postgresql', 'pg'].includes(connection)
+        ? 5432
+        : connection === 'sqlserver'
+          ? 1433
+          : 3306,
     database: env.DB_DATABASE || env.DB_NAME || 'mapping',
     user: env.DB_USER || env.DB_USERNAME || 'root',
     password: env.DB_PASSWORD || '',
@@ -25,6 +32,7 @@ function connectionFromEnv(env = process.env) {
 function normalizeDialect(connection) {
   if (['mysql', 'mysql2'].includes(connection)) return 'mysql';
   if (['mssql', 'sqlserver', 'sqlsrv'].includes(connection)) return 'sqlserver';
+  if (['postgres', 'postgresql', 'pg'].includes(connection)) return 'postgres';
   return 'sqlite';
 }
 
@@ -49,7 +57,7 @@ function openDb(configOrPath) {
     return raw;
   }
 
-  const client = dialect === 'mysql' ? 'mysql2' : 'mssql';
+  const client = dialect === 'mysql' ? 'mysql2' : dialect === 'postgres' ? 'pg' : 'mssql';
   const connection =
     dialect === 'mysql'
       ? {
@@ -59,17 +67,37 @@ function openDb(configOrPath) {
           user: config.user,
           password: config.password
         }
-      : {
-          server: config.host,
-          port: config.port,
-          database: config.database,
-          user: config.user,
-          password: config.password,
-          options: {
-            encrypt: config.encrypt,
-            trustServerCertificate: config.trustServerCertificate
-          }
-        };
+      : dialect === 'postgres'
+        ? config.url && String(config.url).trim()
+          ? {
+              connectionString: String(config.url).trim(),
+              ssl:
+                String(process.env.PGSSLMODE || '').toLowerCase() === 'disable'
+                  ? false
+                  : { rejectUnauthorized: false }
+            }
+          : {
+              host: config.host,
+              port: config.port,
+              database: config.database,
+              user: config.user,
+              password: config.password,
+              ssl:
+                String(process.env.PGSSLMODE || '').toLowerCase() === 'disable'
+                  ? false
+                  : { rejectUnauthorized: false }
+            }
+        : {
+            server: config.host,
+            port: config.port,
+            database: config.database,
+            user: config.user,
+            password: config.password,
+            options: {
+              encrypt: config.encrypt,
+              trustServerCertificate: config.trustServerCertificate
+            }
+          };
 
   const knex = knexFactory({ client, connection, pool: { min: 0, max: 10 } });
   knex.__dialect = dialect;
@@ -93,6 +121,11 @@ function normalizeRawResult(dialect, raw) {
     if (raw?.recordset) return raw.recordset;
     return [];
   }
+  if (dialect === 'postgres') {
+    if (Array.isArray(raw)) return raw;
+    if (raw?.rows) return raw.rows;
+    return [];
+  }
   return raw;
 }
 
@@ -106,6 +139,12 @@ function normalizeRunResult(dialect, raw) {
     const lastID = rows?.[0]?.lastID || rows?.[0]?.id || 0;
     const changes = Array.isArray(raw?.rowsAffected) ? raw.rowsAffected[0] || 0 : 0;
     return { lastID, changes: changes || (lastID ? 1 : 0) };
+  }
+  if (dialect === 'postgres') {
+    const rows = raw?.rows || [];
+    const lastID = rows?.[0]?.id || rows?.[0]?.lastid || rows?.[0]?.lastID || 0;
+    const changes = typeof raw?.rowCount === 'number' ? raw.rowCount : Array.isArray(rows) ? rows.length : 0;
+    return { lastID: lastID || 0, changes: changes || (lastID ? 1 : 0) };
   }
   return raw;
 }
@@ -131,6 +170,10 @@ function alterColumnType(dialect, type) {
   }
   if (dialect === 'mysql') {
     if (/^INTEGER\b/i.test(type)) return type.replace(/^INTEGER/i, 'INT');
+  }
+  if (dialect === 'postgres') {
+    if (/^DATETIME\b/i.test(type)) return type.replace(/^DATETIME/i, 'TIMESTAMP');
+    if (/^INTEGER\b/i.test(type)) return type; // already compatible
   }
   return type;
 }
@@ -194,6 +237,9 @@ function promisifyDb(db) {
       if (dialect === 'sqlserver' && /^\s*INSERT\s+/i.test(statement)) {
         statement = `${statement}; SELECT SCOPE_IDENTITY() AS lastID`;
       }
+      if (dialect === 'postgres' && /^\s*INSERT\s+/i.test(statement) && !/\sRETURNING\s+/i.test(statement)) {
+        statement = `${statement} RETURNING id`;
+      }
       const raw = await db.raw(statement, params);
       return normalizeRunResult(dialect, raw);
     },
@@ -204,6 +250,16 @@ function promisifyDb(db) {
           SELECT COLUMN_NAME AS name, DATA_TYPE AS type
           FROM INFORMATION_SCHEMA.COLUMNS
           WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?
+          `,
+          [table]
+        );
+      }
+      if (dialect === 'postgres') {
+        return this.all(
+          `
+          SELECT column_name AS name, data_type AS type
+          FROM information_schema.columns
+          WHERE table_schema = current_schema() AND table_name = ?
           `,
           [table]
         );
@@ -239,14 +295,26 @@ async function createPortableSchema(db) {
       ? 'id INT AUTO_INCREMENT PRIMARY KEY'
       : db.dialect === 'sqlserver'
         ? 'id INT IDENTITY(1,1) PRIMARY KEY'
+        : db.dialect === 'postgres'
+          ? 'id INT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY'
         : 'id INTEGER PRIMARY KEY AUTOINCREMENT';
   const fixedId = db.dialect === 'sqlite' ? 'id INTEGER PRIMARY KEY' : 'id INT PRIMARY KEY';
   const text = db.dialect === 'sqlserver' ? 'NVARCHAR(MAX)' : 'TEXT';
-  const shortText = db.dialect === 'sqlserver' ? 'NVARCHAR(255)' : db.dialect === 'mysql' ? 'VARCHAR(255)' : 'TEXT';
-  const dt = db.dialect === 'sqlserver' ? 'DATETIME2 DEFAULT SYSDATETIME()' : 'DATETIME DEFAULT CURRENT_TIMESTAMP';
+  const shortText =
+    db.dialect === 'sqlserver'
+      ? 'NVARCHAR(255)'
+      : db.dialect === 'mysql' || db.dialect === 'postgres'
+        ? 'VARCHAR(255)'
+        : 'TEXT';
+  const dt =
+    db.dialect === 'sqlserver'
+      ? 'DATETIME2 DEFAULT SYSDATETIME()'
+      : db.dialect === 'postgres'
+        ? 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'
+        : 'DATETIME DEFAULT CURRENT_TIMESTAMP';
   const now = db.dialect === 'sqlserver' ? 'SYSDATETIME()' : 'CURRENT_TIMESTAMP';
 
-  const c = (...cols) => ({ sqlite: cols, mysql: cols, sqlserver: cols });
+  const c = (...cols) => ({ sqlite: cols, mysql: cols, postgres: cols, sqlserver: cols });
 
   const tables = [
     ['node_types', c(fixedId, `name ${shortText} NOT NULL UNIQUE`, `label ${shortText} NOT NULL`, `icon ${shortText}`, `created_at ${dt}`)],
@@ -305,8 +373,12 @@ async function createPortableSchema(db) {
         `work_order_notes ${text}`,
         `technician_report ${text}`,
         `status ${shortText} NOT NULL DEFAULT 'reported'`,
-        `assigned_at ${db.dialect === 'sqlserver' ? 'DATETIME2' : 'DATETIME'}`,
-        `completed_at ${db.dialect === 'sqlserver' ? 'DATETIME2' : 'DATETIME'}`,
+        `assigned_at ${
+          db.dialect === 'sqlserver' ? 'DATETIME2' : db.dialect === 'postgres' ? 'TIMESTAMP' : 'DATETIME'
+        }`,
+        `completed_at ${
+          db.dialect === 'sqlserver' ? 'DATETIME2' : db.dialect === 'postgres' ? 'TIMESTAMP' : 'DATETIME'
+        }`,
         `created_at ${dt}`,
         `updated_at ${dt}`
       )
@@ -341,8 +413,14 @@ async function createPortableSchema(db) {
 
 async function initSchema(db, schemaPath) {
   if (db.dialect === 'sqlite') {
-    const sql = fs.readFileSync(schemaPath, 'utf8');
-    await db.exec(sql);
+    try {
+      const sql = fs.readFileSync(schemaPath, 'utf8');
+      await db.exec(sql);
+    } catch (e) {
+      // Some deployments don't ship a separate sqlite schema file.
+      // Fall back to the portable schema generator.
+      await createPortableSchema(db);
+    }
     return;
   }
   await createPortableSchema(db);

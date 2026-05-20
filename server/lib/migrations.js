@@ -13,11 +13,12 @@ async function ensureMigrationsTable(db) {
     return;
   }
 
-  const idType = db.dialect === 'mysql' ? 'VARCHAR(120)' : 'TEXT';
+  const idType = db.dialect === 'mysql' || db.dialect === 'postgres' ? 'VARCHAR(120)' : 'TEXT';
+  const appliedAtType = db.dialect === 'postgres' ? 'TIMESTAMP' : 'DATETIME';
   await db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       id ${idType} PRIMARY KEY,
-      applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      applied_at ${appliedAtType} DEFAULT CURRENT_TIMESTAMP
     )
   `);
 }
@@ -168,8 +169,11 @@ async function ensureDatabaseExists() {
     ? 'mysql'
     : ['mssql', 'sqlserver', 'sqlsrv'].includes(connection)
       ? 'sqlserver'
-      : 'sqlite';
+      : ['postgres', 'postgresql', 'pg'].includes(connection)
+        ? 'postgres'
+        : 'sqlite';
   if (dialect === 'sqlite') return;
+  if (dialect === 'postgres') return; // Supabase/managed Postgres: create DB is not supported here.
   if (String(process.env.ALLOW_DB_CREATE || '0').trim() !== '1') return;
 
   const dbName = env.database;
