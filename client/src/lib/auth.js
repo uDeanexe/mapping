@@ -1,25 +1,4 @@
-export function getStoredUser() {
-  try {
-    const raw = localStorage.getItem('auth_user');
-    return raw ? JSON.parse(raw) : null;
-  } catch (_) {
-    return null;
-  }
-}
-
-export function getToken() {
-  return localStorage.getItem('auth_token');
-}
-
-export function setAuth(token, user) {
-  localStorage.setItem('auth_token', token);
-  localStorage.setItem('auth_user', JSON.stringify(user));
-}
-
-export function clearAuth() {
-  localStorage.removeItem('auth_token');
-  localStorage.removeItem('auth_user');
-}
+// Auth is handled by Supabase. Keep helpers for role label + gating.
 
 export function roleLabel(role) {
   switch (role) {
@@ -39,4 +18,3 @@ export function roleLabel(role) {
 export function canManageUsers(user) {
   return ['superadmin', 'admin'].includes(user?.role);
 }
-

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiPostJson } from '../lib/api.js';
-import { setAuth } from '../lib/auth.js';
+import { supabase } from '../lib/supabase.js';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -33,8 +32,9 @@ export default function LoginPage() {
               try {
                 setLoading(true);
                 setError('');
-                const result = await apiPostJson('/api/auth/login', { email, password });
-                setAuth(result.token, result.user);
+                const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+                if (authError) throw authError;
+                if (!data?.session) throw new Error('Login gagal: session kosong');
                 navigate('/', { replace: true });
               } catch (err) {
                 setError(err.message || 'Login gagal');
@@ -91,7 +91,7 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <div className="mt-4 text-center text-xs text-slate-500">Pastikan koneksi ke server aktif.</div>
+        <div className="mt-4 text-center text-xs text-slate-500">Gunakan akun Supabase Auth (email/password).</div>
       </div>
     </div>
   );
