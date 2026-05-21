@@ -1,6 +1,8 @@
-const DEFAULT_BASE = '';
-
-export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || DEFAULT_BASE).replace(/\/+$/, '');
+// Always prefer same-origin API (relative /api/*).
+// - Unified dev / production: UI + API are served from the same host/port.
+// - Split dev: Vite dev server proxies `/api` and `/uploads` to the backend.
+// You can still override with VITE_API_BASE_URL if you explicitly need it.
+export const API_BASE_URL = String(import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
 
 async function request(path, options) {
   const url = `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
@@ -91,4 +93,3 @@ export async function apiDownload(path, filename) {
   document.body.removeChild(link);
   URL.revokeObjectURL(urlObject);
 }
-

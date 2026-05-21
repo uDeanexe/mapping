@@ -6,6 +6,15 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { typeColor } from '../lib/nodeTypes.js';
 
+function toValidCoord(node) {
+  const lat = Number(node?.latitude);
+  const lng = Number(node?.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat < -90 || lat > 90) return null;
+  if (lng < -180 || lng > 180) return null;
+  return { lat, lng };
+}
+
 function markerIcon(type) {
   const color = typeColor(type);
   const html = `
@@ -39,7 +48,7 @@ export default function DashboardPage() {
   const totals = data?.totals || {};
 
   const center = useMemo(() => {
-    const withCoord = nodes.find((n) => Number.isFinite(n.latitude) && Number.isFinite(n.longitude));
+    const withCoord = nodes.find((n) => toValidCoord(n));
     return withCoord
       ? { lat: Number(withCoord.latitude), lng: Number(withCoord.longitude) }
       : { lat: -6.2615, lng: 107.1528 };
@@ -123,15 +132,19 @@ export default function DashboardPage() {
             url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
           />
           {nodes
-            .filter((n) => Number.isFinite(n.latitude) && Number.isFinite(n.longitude))
-            .map((node) => (
-              <Marker key={node.id} position={[Number(node.latitude), Number(node.longitude)]} icon={markerIcon(node.type)}>
+            .map((node) => {
+              const coord = toValidCoord(node);
+              if (!coord) return null;
+              return (
+                <Marker key={node.id} position={[coord.lat, coord.lng]} icon={markerIcon(node.type)}>
                 <Popup className="rounded-xl">
                   <div className="font-semibold text-slate-900">{node.code}</div>
                   <div className="text-xs text-slate-500 mt-1">{node.name || '-'}</div>
                 </Popup>
-              </Marker>
-            ))}
+                </Marker>
+              );
+            })
+            .filter(Boolean)}
         </MapContainer>
       </div>
 

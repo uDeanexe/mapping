@@ -26,6 +26,10 @@ copy server\\.env.example server\\.env
 npm run dev
 ```
 
+Default `npm run dev` sekarang **mode kesatuan** (UI + API satu port, default `http://localhost:3010`).
+Kalau butuh mode lama (client `:5173` terpisah), pakai `npm run dev:split`.
+Kalau kamu set `BASE_PATH` (mis. `/cordinat`), aksesnya jadi `http://localhost:3010/cordinat/`.
+
 ## Environment Variables
 
 Backend: `server/.env`
@@ -41,13 +45,15 @@ Backend: `server/.env`
 
 Frontend: `client/.env` (opsional)
 
-- `VITE_API_BASE_URL` (default `http://localhost:3010`)
+- `VITE_API_BASE_URL` (opsional; defaultnya client pakai same-origin `/api/*`)
 - (Map View memakai OpenStreetMap/Leaflet, tidak butuh API key)
 
 ## Scripts
 
-- `npm run dev` -> start server + client
-- `npm run start` -> start server (serve API + static uploads)
+- `npm run dev` -> dev mode kesatuan (UI + API satu port)
+- `npm run dev:split` -> mode dev terpisah (backend default di `:3011`, client di `:5173`)
+- `npm run start` -> start server (API + uploads; serve client hanya bila production atau `SERVE_CLIENT=1`)
+- `npm run start:full` -> build client lalu start server serve `client/dist`
 - `npm run build` -> build client
 - `npm run preview` -> preview client build
 
@@ -133,13 +139,12 @@ location ^~ /cordinat/ {
 
 Build React lalu jalankan server Express untuk serve API + React build:
 
-```powershell
-npm install
-npm run build --workspace client
-$env:NODE_ENV='production'
-npm run start --workspace server
+```bash
+npm ci
+npm run start:full
 ```
 
 Catatan:
 - Di mode production, server otomatis serve `client/dist` (SPA) dan `uploads/`.
 - Kalau mau paksa serve client di non-production, set `SERVE_CLIENT=1` di `server/.env`.
+- `start:full` otomatis build client dengan `VITE_BASE_PATH` mengikuti `BASE_PATH` di `server/.env`.

@@ -18,6 +18,8 @@ const {
   linkCreateSchema,
   incidentCreateSchema,
   incidentCompleteSchema,
+  incidentAssignSchema,
+  incidentStartSchema,
   incidentEmailSchema,
   incidentTelegramSchema,
   workReportCreateSchema,
@@ -41,10 +43,20 @@ const EFFECTIVE_BASE_PATH = BASE_PATH === '/' ? '' : BASE_PATH;
 const API_PREFIX = `${EFFECTIVE_BASE_PATH}/api`;
 const UPLOADS_PREFIX = `${EFFECTIVE_BASE_PATH}/uploads`;
 const SERVE_CLIENT = String(process.env.SERVE_CLIENT || '').toLowerCase();
+const UNIFIED_DEV = String(process.env.UNIFIED_DEV || '').toLowerCase();
 const shouldServeClient =
   SERVE_CLIENT === '1' ||
   SERVE_CLIENT === 'true' ||
   String(process.env.NODE_ENV || '').toLowerCase() === 'production';
+const unifiedDevMode =
+  !shouldServeClient && (UNIFIED_DEV === '1' || UNIFIED_DEV === 'true' || UNIFIED_DEV === 'yes');
+
+// If mounted under a subpath (ex: BASE_PATH=/cordinat), make `/` redirect to that subpath.
+function maybeRedirectRoot(req, res, next) {
+  if (!EFFECTIVE_BASE_PATH) return next();
+  if (req.path !== '/') return next();
+  res.redirect(302, `${EFFECTIVE_BASE_PATH}/`);
+}
 
 if (String(process.env.NODE_ENV || '').toLowerCase() === 'production') {
   if (JWT_SECRET === 'dev-secret-change-me' || JWT_SECRET.length < 32) {
@@ -65,7 +77,11 @@ let db = null;
 async function bootstrap() {
   await ensureDatabaseExists();
 
-  rawDb = openDb(path.resolve(__dirname, DB_PATH));
+  // IMPORTANT:
+  // Do not pass a string path into openDb() here, because that forces sqlite mode.
+  // We want DB_CONNECTION from env to decide the dialect (mysql/postgres/sqlserver/sqlite).
+  // `sqlitePath` is only used when DB_CONNECTION=sqlite.
+  rawDb = openDb({ sqlitePath: DB_PATH });
   db = promisifyDb(rawDb);
   const schemaPath = path.resolve(__dirname, 'database', 'schema.sql');
   await runMigrations(db, schemaPath);
@@ -73,11 +89,21 @@ async function bootstrap() {
 }
 
 app.use(
-  helmet({
-    crossOriginResourcePolicy: { policy: 'cross-origin' }
-  })
+  helmet(
+    unifiedDevMode
+      ? {
+          // Vite dev middleware uses HMR and dev transforms that may rely on eval/new Function.
+          // Disabling CSP in unified dev avoids a blank page while keeping production hardened.
+          contentSecurityPolicy: false,
+          crossOriginResourcePolicy: { policy: 'cross-origin' }
+        }
+      : {
+          crossOriginResourcePolicy: { policy: 'cross-origin' }
+        }
+  )
 );
-app.use(cors({ origin: CORS_ORIGIN }));
+// In unified dev mode, client+API share the same origin so CORS is unnecessary.
+app.use(cors({ origin: unifiedDevMode ? true : CORS_ORIGIN }));
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -89,6 +115,9 @@ app.use(
     legacyHeaders: false
   })
 );
+
+// Root redirect helps avoid blank page when BASE_PATH is configured.
+app.get('/', maybeRedirectRoot);
 
 const loginLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -363,6 +392,22 @@ app.get('/api/users', requireAuth, requireRoles('superadmin', 'admin'), async (r
   }
 });
 
+app.get('/api/technicians', requireAuth, requireRoles('superadmin', 'admin', 'supervisor_noc'), async (req, res) => {
+  try {
+    const rows = await db.all(
+      `
+      SELECT id, name, email
+      FROM users
+      WHERE role = 'teknisi' AND is_active = 1
+      ORDER BY name ASC
+      `
+    );
+    res.json(rows);
+  } catch (e) {
+    apiError(res, 500, e.message);
+  }
+});
+
 app.post('/api/users', requireAuth, requireRoles('superadmin', 'admin'), async (req, res) => {
   try {
     const parsed = userCreateSchema.safeParse(req.body);
@@ -496,7 +541,10 @@ app.get('/api/nodes/:id/surat-jalan.pdf', async (req, res) => {
       keperluan: req.query.keperluan,
       kerusakan: req.query.kerusakan,
       teknisi: req.query.teknisi,
-      kendaraan: req.query.kendaraan
+      kendaraan: req.query.kendaraan,
+      technician_contact: req.query.technician_contact,
+      noc_admin: req.query.noc_admin,
+      ticket_no: req.query.ticket_no
     };
 
     const doc = buildSuratJalanPdf({
@@ -548,6 +596,8 @@ app.get('/api/incidents/:id/surat-jalan.pdf', async (req, res) => {
       teknisi: req.query.teknisi || incident.technician_name,
       kendaraan: req.query.kendaraan,
       noc_admin: incident.noc_admin_name,
+      technician_contact: incident.technician_contact,
+      ticket_no: `INC-${String(incident.id).padStart(6, '0')}`,
       photo_path: incident.photo_path || pdfNode.photo_path
     };
 
@@ -1020,6 +1070,106 @@ app.patch('/api/incidents/:id/complete', async (req, res) => {
   }
 });
 
+// Technician/NOC job board data.
+// - teknisi: only jobs assigned to themselves + in_progress + done
+// - NOC/admin: see all
+app.get('/api/tech/jobs', requireAuth, requireRoles('teknisi', 'superadmin', 'admin', 'supervisor_noc'), async (req, res) => {
+  try {
+    const isTech = req.user?.role === 'teknisi';
+    const rows = await db.all(
+      `
+      SELECT
+        incidents.*,
+        nodes.code AS node_code,
+        nodes.address AS node_address,
+        nodes.latitude AS node_latitude,
+        nodes.longitude AS node_longitude,
+        node_types.name AS node_type,
+        node_types.label AS node_type_label
+      FROM incidents
+      LEFT JOIN nodes ON nodes.id = incidents.node_id
+      LEFT JOIN node_types ON node_types.id = nodes.node_type_id
+      ${isTech ? 'WHERE LOWER(COALESCE(incidents.technician_email, \'\')) = LOWER(?)' : ''}
+      ORDER BY incidents.id DESC
+      `
+      ,
+      isTech ? [req.user.email] : []
+    );
+    res.json(rows);
+  } catch (e) {
+    apiError(res, 500, e.message);
+  }
+});
+
+// NOC assigns a technician (creates surat jalan stage).
+app.patch('/api/incidents/:id/assign', requireAuth, requireRoles('superadmin', 'admin', 'supervisor_noc'), async (req, res) => {
+  try {
+    const parsed = incidentAssignSchema.safeParse(req.body || {});
+    if (!parsed.success) return apiError(res, 422, 'Validasi gagal', parsed.error.flatten());
+
+    const inc = await db.get('SELECT * FROM incidents WHERE id = ? LIMIT 1', [req.params.id]);
+    if (!inc) return apiError(res, 404, 'Gangguan tidak ditemukan');
+
+    if (String(inc.status || '') !== 'reported') return apiError(res, 422, 'Status gangguan harus Laporan User');
+
+    const tech = await db.get(
+      'SELECT id, name, email, role, is_active FROM users WHERE id = ? LIMIT 1',
+      [parsed.data.technician_user_id]
+    );
+    if (!tech || tech.role !== 'teknisi' || Number(tech.is_active) !== 1) return apiError(res, 422, 'Teknisi tidak valid');
+
+    const contact = parsed.data.technician_contact || null;
+
+    const result = await db.run(
+      `
+        UPDATE incidents SET
+          technician_name = ?,
+          technician_email = ?,
+          technician_contact = ?,
+          status = 'assigned',
+          assigned_at = COALESCE(assigned_at, CURRENT_TIMESTAMP),
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `,
+      [tech.name, tech.email, contact, req.params.id]
+    );
+
+    if (result.changes === 0) return apiError(res, 404, 'Gangguan tidak ditemukan');
+    res.json({ message: 'Teknisi ditugaskan (Surat Jalan)' });
+  } catch (e) {
+    apiError(res, 500, e.message);
+  }
+});
+
+app.patch('/api/incidents/:id/start', requireAuth, requireRoles('teknisi'), async (req, res) => {
+  try {
+    const parsed = incidentStartSchema.safeParse(req.body || {});
+    if (!parsed.success) return apiError(res, 422, 'Validasi gagal', parsed.error.flatten());
+
+    const inc = await db.get('SELECT id, technician_email, status FROM incidents WHERE id = ? LIMIT 1', [req.params.id]);
+    if (!inc) return apiError(res, 404, 'Gangguan tidak ditemukan');
+
+    if (!inc.technician_email || String(inc.technician_email).toLowerCase() !== String(req.user.email).toLowerCase()) {
+      return apiError(res, 403, 'Gangguan ini bukan milik Anda');
+    }
+
+    if (String(inc.status || '') !== 'assigned') return apiError(res, 422, 'Status gangguan harus Assigned');
+
+    await db.run(
+      `
+        UPDATE incidents SET
+          status = 'in_progress',
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `,
+      [req.params.id]
+    );
+    res.json({ message: 'Status diubah ke Dikerjakan' });
+  } catch (e) {
+    apiError(res, 500, e.message);
+  }
+});
+
 app.get('/api/incidents/:id/share-message', async (req, res) => {
   try {
     const { incident, node } = await getIncidentWithNode(req.params.id);
@@ -1306,7 +1456,50 @@ app.delete('/api/links/:id', async (req, res) => {
 });
 
 bootstrap()
-  .then(() => {
+  .then(async () => {
+    // Unified dev: run Vite in middleware mode so API + web UI are served from the same port.
+    // This keeps the system "kesatuan" (not split between :3010 and :5173) while still using HMR.
+    if (unifiedDevMode) {
+      try {
+        const { createServer: createViteServer } = await import('vite');
+        const clientRoot = path.resolve(__dirname, '..', 'client');
+        const base = EFFECTIVE_BASE_PATH ? `${EFFECTIVE_BASE_PATH}/` : '/';
+
+        const vite = await createViteServer({
+          root: clientRoot,
+          base,
+          appType: 'spa',
+          server: { middlewareMode: true }
+        });
+
+        app.use(vite.middlewares);
+
+        const indexHtmlPath = path.resolve(clientRoot, 'index.html');
+        app.get('*', async (req, res, next) => {
+          // Only handle routes under the configured base path (if any).
+          if (EFFECTIVE_BASE_PATH && !req.path.startsWith(EFFECTIVE_BASE_PATH)) return next();
+          if (req.path.startsWith('/api') || req.path.startsWith(API_PREFIX)) return next();
+          if (req.path.startsWith('/uploads') || req.path.startsWith(UPLOADS_PREFIX)) return next();
+
+          try {
+            const url = req.originalUrl;
+            const raw = await fs.promises.readFile(indexHtmlPath, 'utf-8');
+            const html = await vite.transformIndexHtml(url, raw);
+            res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
+          } catch (e) {
+            vite.ssrFixStacktrace?.(e);
+            next(e);
+          }
+        });
+
+        // eslint-disable-next-line no-console
+        console.log(`Unified dev mode aktif: UI + API di http://localhost:${PORT}${EFFECTIVE_BASE_PATH || ''}`);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error('Gagal mengaktifkan unified dev mode (vite middleware):', e);
+      }
+    }
+
     // SPA fallback (React Router) for non-API routes in production.
     if (shouldServeClient) {
       const clientIndex = path.resolve(__dirname, '..', 'client', 'dist', 'index.html');
@@ -1321,7 +1514,7 @@ bootstrap()
 
     const server = app.listen(PORT, () => {
       // eslint-disable-next-line no-console
-      console.log(`API running on http://localhost:${PORT}`);
+      console.log(`Server running on http://localhost:${PORT}${EFFECTIVE_BASE_PATH || ''}`);
     });
     server.on('error', (error) => {
       if (error.code === 'EADDRINUSE') {

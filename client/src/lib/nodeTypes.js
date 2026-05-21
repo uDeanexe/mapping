@@ -10,19 +10,27 @@ export const DEFAULT_NODE_TYPES = [
 
 export function typeColor(type) {
   switch (type) {
+    // Core infra
     case 'odc':
+      // Ungu (ODC)
       return '#7c3aed';
     case 'pon':
-      return '#2563eb';
-    case 'box':
-      return '#059669';
-    case 'pole':
+      // Kuning/amber (PON)
       return '#d97706';
+    case 'box':
+      // Hijau (ODP/BOX)
+      return '#16a34a';
+    case 'pole':
+      // Coklat/orange (Tiang)
+      return '#9a3412';
     case 'customer':
-      return '#111827';
+      // Abu gelap (Customer)
+      return '#334155';
     case 'server':
-      return '#0f766e';
+      // Biru (Server)
+      return '#2563eb';
     case 'olc':
+      // Merah (OLC)
       return '#be123c';
     default:
       return '#111827';

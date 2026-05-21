@@ -49,6 +49,15 @@ const incidentCompleteSchema = z.object({
   status: z.enum(['completed', 'closed']).optional().nullable()
 });
 
+const incidentAssignSchema = z.object({
+  technician_user_id: z.coerce.number().int().positive('Teknisi wajib dipilih'),
+  technician_contact: z.string().trim().optional().nullable()
+});
+
+const incidentStartSchema = z.object({
+  status: z.enum(['in_progress']).optional().nullable()
+});
+
 const incidentEmailSchema = z.object({
   to: z.string().trim().min(3, 'Email tujuan wajib'),
   subject: z.string().trim().optional().nullable(),
@@ -100,6 +109,8 @@ module.exports = {
   linkCreateSchema,
   incidentCreateSchema,
   incidentCompleteSchema,
+  incidentAssignSchema,
+  incidentStartSchema,
   incidentEmailSchema,
   incidentTelegramSchema,
   workReportCreateSchema,

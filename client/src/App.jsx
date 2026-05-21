@@ -9,6 +9,7 @@ import LinksPage from './pages/LinksPage.jsx';
 import IncidentsPage from './pages/IncidentsPage.jsx';
 import WorkReportsPage from './pages/WorkReportsPage.jsx';
 import UsersPage from './pages/UsersPage.jsx';
+import TechnicianJobsPage from './pages/TechnicianJobsPage.jsx';
 import Sidebar from './components/sidebar.jsx';
 import Header from './components/header.jsx';
 import { canManageUsers, clearAuth, getStoredUser, getToken } from './lib/auth.js';
@@ -100,6 +101,17 @@ const navItems = [
     )
   },
   {
+    to: '/jobs',
+    label: 'Pekerjaan',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 11l3 3L22 4" />
+        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+      </svg>
+    ),
+    requiresJobsAccess: true
+  },
+  {
     to: '/users',
     label: 'Akun User',
     icon: (
@@ -149,7 +161,11 @@ function Layout({ children }) {
   return (
     <div className="flex h-screen bg-slate-50 text-slate-900 overflow-hidden">
       <Sidebar
-        navItems={navItems}
+        navItems={navItems.filter((it) => {
+          if (it.requiresAdmin && !canManageUsers(user)) return false;
+          if (it.requiresJobsAccess && !['teknisi', 'superadmin', 'admin', 'supervisor_noc'].includes(user?.role)) return false;
+          return true;
+        })}
         user={user}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
@@ -194,6 +210,7 @@ export default function App() {
       <Route path="/links" element={<ProtectedPage><LinksPage /></ProtectedPage>} />
       <Route path="/gangguan" element={<ProtectedPage><IncidentsPage /></ProtectedPage>} />
       <Route path="/rekam-kerja" element={<ProtectedPage><WorkReportsPage /></ProtectedPage>} />
+      <Route path="/jobs" element={<ProtectedPage><TechnicianJobsPage /></ProtectedPage>} />
       <Route path="/users" element={<ProtectedPage><UsersPage /></ProtectedPage>} />
       <Route
         path="*"

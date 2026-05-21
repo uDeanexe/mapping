@@ -6,11 +6,52 @@ import { apiGet } from '../lib/api.js';
 import { googleMapsLink, typeColor } from '../lib/nodeTypes.js';
 import { ToastProvider, useToast } from '../components/Toast.jsx';
 
+function EnsureLeafletSize() {
+  const map = useMap();
+  useEffect(() => {
+    let raf1 = 0;
+    let raf2 = 0;
+
+    const invalidate = () => map.invalidateSize({ pan: false });
+
+    raf1 = requestAnimationFrame(() => {
+      invalidate();
+      raf2 = requestAnimationFrame(invalidate);
+    });
+
+    const onResize = () => invalidate();
+    window.addEventListener('resize', onResize);
+
+    return () => {
+      window.removeEventListener('resize', onResize);
+      if (raf1) cancelAnimationFrame(raf1);
+      if (raf2) cancelAnimationFrame(raf2);
+    };
+  }, [map]);
+  return null;
+}
+
+function toValidCoord(node) {
+  const lat = Number(node?.latitude);
+  const lng = Number(node?.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat < -90 || lat > 90) return null;
+  if (lng < -180 || lng > 180) return null;
+  return { lat, lng };
+}
+
 function FitBounds({ points }) {
   const map = useMap();
   useEffect(() => {
     if (!points.length) return;
     const bounds = L.latLngBounds(points.map((p) => [p.lat, p.lng]));
+    const spanLat = Math.abs(bounds.getNorth() - bounds.getSouth());
+    const spanLng = Math.abs(bounds.getEast() - bounds.getWest());
+
+    // Guardrail: if a single outlier point exists, fitBounds can zoom out to world view.
+    // Default behavior: fit only when the cluster is reasonably local.
+    if (spanLat > 5 || spanLng > 5) return;
+
     map.fitBounds(bounds.pad(0.2));
   }, [map, points]);
   return null;
@@ -43,16 +84,14 @@ function MapInner() {
   const [loading, setLoading] = useState(true);
 
   const center = useMemo(() => {
-    const withCoord = nodes.find((n) => Number.isFinite(n.latitude) && Number.isFinite(n.longitude));
+    const withCoord = nodes.find((n) => toValidCoord(n));
     return withCoord
       ? { lat: Number(withCoord.latitude), lng: Number(withCoord.longitude) }
       : { lat: -6.2615, lng: 107.1528 };
   }, [nodes]);
 
   const points = useMemo(() => {
-    return nodes
-      .filter((n) => Number.isFinite(n.latitude) && Number.isFinite(n.longitude))
-      .map((n) => ({ lat: Number(n.latitude), lng: Number(n.longitude) }));
+    return nodes.map((n) => toValidCoord(n)).filter(Boolean);
   }, [nodes]);
 
   useEffect(() => {
@@ -83,13 +122,14 @@ function MapInner() {
         const a = byId.get(String(l.source_node_id));
         const b = byId.get(String(l.target_node_id));
         if (!a || !b) return null;
-        if (!Number.isFinite(a.latitude) || !Number.isFinite(a.longitude)) return null;
-        if (!Number.isFinite(b.latitude) || !Number.isFinite(b.longitude)) return null;
+        const ac = toValidCoord(a);
+        const bc = toValidCoord(b);
+        if (!ac || !bc) return null;
         return {
           id: l.id,
           path: [
-            [Number(a.latitude), Number(a.longitude)],
-            [Number(b.latitude), Number(b.longitude)]
+            [ac.lat, ac.lng],
+            [bc.lat, bc.lng]
           ]
         };
       })
@@ -131,6 +171,7 @@ function MapInner() {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
+          <EnsureLeafletSize />
           <FitBounds points={points} />
 
           {polylines.map((p) => (
@@ -149,9 +190,11 @@ function MapInner() {
           ))}
 
           {nodes
-            .filter((n) => Number.isFinite(n.latitude) && Number.isFinite(n.longitude))
-            .map((node) => (
-              <Marker key={node.id} position={[Number(node.latitude), Number(node.longitude)]} icon={markerIcon(node.type)}>
+            .map((node) => {
+              const coord = toValidCoord(node);
+              if (!coord) return null;
+              return (
+                <Marker key={node.id} position={[coord.lat, coord.lng]} icon={markerIcon(node.type)}>
                 <Popup>
                   <div className="space-y-1">
                     <div className="font-semibold text-slate-900">{node.code}</div>
@@ -188,7 +231,9 @@ function MapInner() {
                   </div>
                 </Popup>
               </Marker>
-            ))}
+              );
+            })
+            .filter(Boolean)}
         </MapContainer>
 
         {loading ? (

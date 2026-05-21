@@ -159,6 +159,33 @@ function migrationList(schemaPathAbs) {
         }
       }
     }
+    ,
+    {
+      id: '007_optional_seed_demo_incidents',
+      async up(db) {
+        if (String(process.env.AUTO_SEED_DEMO || '0').trim() !== '1') return;
+        const incidentCountRow = await db.get('SELECT COUNT(*) AS total FROM incidents');
+        const incidentCount = Number(incidentCountRow?.total || 0);
+        if (incidentCount > 0) return;
+
+        const node = await db.get('SELECT id, code FROM nodes ORDER BY id ASC LIMIT 1');
+        const nodeId = node?.id || null;
+
+        await db.run(
+          `
+          INSERT INTO incidents
+          (
+            node_id, category, title, description, reporter_name, reporter_contact,
+            noc_admin_name, work_order_notes, status
+          )
+          VALUES
+          (?, 'internet_mati', 'Internet mati total', 'Tidak ada koneksi sejak pagi. Modem LOS.', 'User Demo', '08xxxx', 'NOC Demo', 'Cek redaman, pastikan patchcord, follow SOP. Update via WA.', 'reported'),
+          (?, 'kerusakan', 'Kabel drop putus', 'Kabel terlihat putus di dekat tiang.', 'User Demo', '08xxxx', 'NOC Demo', 'Bawa dropcore cadangan + konektor. Dokumentasikan foto sebelum/sesudah.', 'reported')
+          `,
+          [nodeId, nodeId]
+        );
+      }
+    }
   ];
 }
 
@@ -179,13 +206,22 @@ async function ensureDatabaseExists() {
   const dbName = env.database;
   if (!dbName) return;
 
+  // NOTE: Connecting to the MySQL/MariaDB system DB (`mysql`) often fails for
+  // restricted app users. `information_schema` is generally readable and works
+  // as a safe bootstrap DB for CREATE DATABASE checks.
+  const mysqlBootstrapDb =
+    process.env.DB_ADMIN_DATABASE ||
+    process.env.MYSQL_ADMIN_DATABASE ||
+    process.env.MARIADB_ADMIN_DATABASE ||
+    'information_schema';
+
   const adminConfig =
     dialect === 'mysql'
       ? {
           connection: 'mysql',
           host: env.host,
           port: env.port,
-          database: 'mysql',
+          database: mysqlBootstrapDb,
           user: env.user,
           password: env.password
         }

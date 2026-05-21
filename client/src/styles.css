@@ -26,6 +26,14 @@ body {
   min-height: 100vh;
 }
 
+/* Leaflet + Tailwind: prevent tile images from being constrained by global img rules */
+.leaflet-container img.leaflet-tile,
+.leaflet-container img.leaflet-marker-icon,
+.leaflet-container img.leaflet-marker-shadow {
+  max-width: none !important;
+  max-height: none !important;
+}
+
 button,
 input,
 textarea,

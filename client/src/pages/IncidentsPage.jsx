@@ -3,6 +3,7 @@ import Modal from '../components/Modal.jsx';
 import { ToastProvider, useToast } from '../components/Toast.jsx';
 import SuratJalanModal from '../components/SuratJalanModal.jsx';
 import { apiDelete, apiGet, apiPatchJson, apiPostForm, apiPostJson } from '../lib/api.js';
+import { getStoredUser } from '../lib/auth.js';
 
 function statusLabel(status) {
   switch (status) {
@@ -57,6 +58,32 @@ function telegramShareUrl(item) {
   return `https://t.me/share/url?text=${encodeURIComponent(buildIncidentMessage(item))}`;
 }
 
+function buildNocTicketMessage(item, node) {
+  const lines = [
+    `TIKET GANGGUAN #${item.id}`,
+    `Kategori: ${categoryLabel(item.category)}`,
+    `Judul: ${item.title || '-'}`,
+    `Status: ${statusLabel(item.status)}`,
+    `Node: ${item.node_code || '-'}`,
+    node?.latitude && node?.longitude ? `Koordinat: ${node.latitude}, ${node.longitude}` : null,
+    node?.address ? `Alamat: ${node.address}` : null,
+    item.description ? `Keluhan: ${item.description}` : null,
+    item.work_order_notes ? `Instruksi NOC: ${item.work_order_notes}` : null,
+    item.technician_name ? `Teknisi: ${item.technician_name}` : null,
+    item.technician_contact ? `Kontak: ${item.technician_contact}` : null
+  ];
+  return lines.filter(Boolean).join('\n');
+}
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(String(text || ''));
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 function incidentFormData(values) {
   const fd = new FormData();
   Object.entries(values).forEach(([key, value]) => {
@@ -68,8 +95,13 @@ function incidentFormData(values) {
 
 function IncidentsInner() {
   const toast = useToast();
+  const user = getStoredUser();
+  const canActAsTech = user?.role === 'teknisi';
+  const canAssignTech = ['superadmin', 'admin', 'supervisor_noc'].includes(user?.role);
   const [items, setItems] = useState([]);
   const [nodes, setNodes] = useState([]);
+  const [technicians, setTechnicians] = useState([]);
+  const [openMenuId, setOpenMenuId] = useState(null);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -83,17 +115,35 @@ function IncidentsInner() {
   const [completeItem, setCompleteItem] = useState(null);
   const [telegramOpen, setTelegramOpen] = useState(false);
   const [telegramItem, setTelegramItem] = useState(null);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignItem, setAssignItem] = useState(null);
 
   async function load() {
-    const [inc, n] = await Promise.all([apiGet('/api/incidents'), apiGet('/api/nodes')]);
+    const promises = [apiGet('/api/incidents'), apiGet('/api/nodes')];
+    if (canAssignTech) promises.push(apiGet('/api/technicians'));
+    const [inc, n, techs] = await Promise.all(promises);
     setItems(inc);
     setNodes(n);
+    if (canAssignTech) setTechnicians(Array.isArray(techs) ? techs : []);
   }
 
   useEffect(() => {
     load().catch((e) => toast.error(e.message || 'Gagal load data'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const onDocClick = (e) => {
+      const el = e.target;
+      if (!(el instanceof Element)) return;
+      if (el.closest('[data-incident-menu]')) return;
+      setOpenMenuId(null);
+    };
+    document.addEventListener('click', onDocClick);
+    return () => document.removeEventListener('click', onDocClick);
+  }, []);
+
+  const nodeById = useMemo(() => new Map(nodes.map((n) => [String(n.id), n])), [nodes]);
 
   const filtered = useMemo(() => {
     const qq = q.trim().toLowerCase();
@@ -194,77 +244,205 @@ function IncidentsInner() {
                       <div className="text-sm text-slate-500">{it.technician_name ? `Teknisi: ${it.technician_name}` : 'Teknisi belum diisi'}</div>
                     </td>
                     <td data-label="Aksi" className="text-right">
-                      <button
-                        className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
-                        onClick={() => {
-                          setEditing(it);
-                          setOpen(true);
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
-                        onClick={() => {
-                          const node = it.node_id ? nodes.find((n) => Number(n.id) === Number(it.node_id)) : null;
-                          setSjNode(node);
-                          setSjIncident(it);
-                          setSjOpen(true);
-                        }}
-                      >
-                        Surat Jalan
-                      </button>
-                      <button
-                        className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200"
-                        onClick={() => {
-                          setSendItem(it);
-                          setSendOpen(true);
-                        }}
-                      >
-                        Email
-                      </button>
-                      <a className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-white text-slate-700 hover:bg-slate-50 border border-slate-200" href={whatsappUrl(it)} target="_blank" rel="noreferrer">
-                        WhatsApp
-                      </a>
-                      <a className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-white text-slate-700 hover:bg-slate-50 border border-slate-200" href={telegramShareUrl(it)} target="_blank" rel="noreferrer">
-                        Telegram
-                      </a>
-                      <button
-                        className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200"
-                        onClick={() => {
-                          setTelegramItem(it);
-                          setTelegramOpen(true);
-                        }}
-                      >
-                        Bot TG
-                      </button>
-                      <button
-                        className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-sky-600 text-white shadow-sm hover:bg-sky-500"
-                        onClick={() => {
-                          setCompleteItem(it);
-                          setCompleteOpen(true);
-                        }}
-                      >
-                        Laporan Balik
-                      </button>
-                      <a className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-white text-slate-700 hover:bg-slate-50 border border-slate-200" href={`/rekam-kerja?incident_id=${it.id}`}>
-                        Rekam Kerja
-                      </a>
-                      <button
-                        className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-red-600 text-white hover:bg-red-500"
-                        onClick={async () => {
-                          if (!confirm(`Hapus gangguan: ${it.title}?`)) return;
-                          try {
-                            await apiDelete(`/api/incidents/${it.id}`);
-                            toast.success('Gangguan dihapus');
-                            await load();
-                          } catch (e) {
-                            toast.error(e.message || 'Gagal hapus');
-                          }
-                        }}
-                      >
-                        Hapus
-                      </button>
+                      <div className="flex flex-wrap justify-end gap-2" data-incident-menu>
+                        <button
+                          className="inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold transition-colors bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
+                          onClick={() => {
+                            setEditing(it);
+                            setOpen(true);
+                          }}
+                        >
+                          Edit
+                        </button>
+
+                        {canActAsTech &&
+                        it.status === 'assigned' &&
+                        String(it.technician_email || '').toLowerCase() === String(user?.email || '').toLowerCase() ? (
+                          <button
+                            className="inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold transition-colors bg-sky-600 text-white hover:bg-sky-500"
+                            onClick={async () => {
+                              try {
+                                await apiPatchJson(`/api/incidents/${it.id}/start`, { status: 'in_progress' });
+                                toast.success('Mulai dikerjakan');
+                                await load();
+                              } catch (e) {
+                                toast.error(e.message || 'Gagal mulai');
+                              }
+                            }}
+                          >
+                            Mulai
+                          </button>
+                        ) : null}
+
+                        {canAssignTech && it.status === 'reported' ? (
+                          <button
+                            className="inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold transition-colors bg-emerald-600 text-white hover:bg-emerald-500"
+                            onClick={() => {
+                              setAssignItem(it);
+                              setAssignOpen(true);
+                            }}
+                          >
+                            Assign Teknisi
+                          </button>
+                        ) : null}
+
+                        <button
+                          className="inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold transition-colors bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
+                          onClick={() => {
+                            const node = it.node_id ? nodeById.get(String(it.node_id)) : null;
+                            setSjNode(node || null);
+                            setSjIncident(it);
+                            setSjOpen(true);
+                          }}
+                        >
+                          Surat Jalan
+                        </button>
+
+                        <button
+                          className="inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold transition-colors bg-sky-600 text-white shadow-sm hover:bg-sky-500"
+                          onClick={() => {
+                            setCompleteItem(it);
+                            setCompleteOpen(true);
+                          }}
+                        >
+                          Laporan Balik
+                        </button>
+
+                        <a
+                          className="inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold transition-colors bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
+                          href={`/rekam-kerja?incident_id=${it.id}`}
+                        >
+                          Rekam Kerja
+                        </a>
+
+                        {/* Kirim (komunikasi) */}
+                        <div className="relative">
+                          <button
+                            className="inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200"
+                            onClick={() => setOpenMenuId(openMenuId === `send:${it.id}` ? null : `send:${it.id}`)}
+                            type="button"
+                          >
+                            Kirim
+                          </button>
+                          {openMenuId === `send:${it.id}` ? (
+                            <div className="absolute right-0 z-20 mt-2 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+                              <button
+                                className="w-full px-4 py-2.5 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  setSendItem(it);
+                                  setSendOpen(true);
+                                }}
+                              >
+                                Email
+                              </button>
+                              <a
+                                className="block w-full px-4 py-2.5 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                                href={whatsappUrl(it)}
+                                target="_blank"
+                                rel="noreferrer"
+                                onClick={() => setOpenMenuId(null)}
+                              >
+                                WhatsApp
+                              </a>
+                              <a
+                                className="block w-full px-4 py-2.5 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                                href={telegramShareUrl(it)}
+                                target="_blank"
+                                rel="noreferrer"
+                                onClick={() => setOpenMenuId(null)}
+                              >
+                                Telegram
+                              </a>
+                              <button
+                                className="w-full px-4 py-2.5 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  setTelegramItem(it);
+                                  setTelegramOpen(true);
+                                }}
+                              >
+                                Bot TG
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
+
+                        {/* Tools NOC */}
+                        <div className="relative">
+                          <button
+                            className="inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold transition-colors bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
+                            onClick={() => setOpenMenuId(openMenuId === `noc:${it.id}` ? null : `noc:${it.id}`)}
+                            type="button"
+                          >
+                            NOC
+                          </button>
+                          {openMenuId === `noc:${it.id}` ? (
+                            <div className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+                              <button
+                                className="w-full px-4 py-2.5 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                                onClick={async () => {
+                                  setOpenMenuId(null);
+                                  const ok = await copyText(buildIncidentMessage(it));
+                                  ok ? toast.success('Teks gangguan disalin') : toast.error('Gagal copy teks');
+                                }}
+                              >
+                                Copy teks gangguan
+                              </button>
+                              <button
+                                className="w-full px-4 py-2.5 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                                onClick={async () => {
+                                  setOpenMenuId(null);
+                                  const node = it.node_id ? nodeById.get(String(it.node_id)) : null;
+                                  const ok = await copyText(buildNocTicketMessage(it, node));
+                                  ok ? toast.success('Template tiket disalin') : toast.error('Gagal copy template');
+                                }}
+                              >
+                                Copy template tiket NOC
+                              </button>
+                              <button
+                                className="w-full px-4 py-2.5 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                                onClick={async () => {
+                                  setOpenMenuId(null);
+                                  const node = it.node_id ? nodeById.get(String(it.node_id)) : null;
+                                  if (!node?.latitude || !node?.longitude) return toast.error('Koordinat node belum ada');
+                                  const ok = await copyText(`${node.latitude}, ${node.longitude}`);
+                                  ok ? toast.success('Koordinat disalin') : toast.error('Gagal copy koordinat');
+                                }}
+                              >
+                                Copy koordinat node
+                              </button>
+                              <button
+                                className="w-full px-4 py-2.5 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  const node = it.node_id ? nodeById.get(String(it.node_id)) : null;
+                                  if (!node?.latitude || !node?.longitude) return toast.error('Koordinat node belum ada');
+                                  window.open(`https://www.google.com/maps?q=${encodeURIComponent(`${node.latitude},${node.longitude}`)}`, '_blank');
+                                }}
+                              >
+                                Buka Google Maps
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
+
+                        <button
+                          className="inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold transition-colors bg-red-600 text-white hover:bg-red-500"
+                          onClick={async () => {
+                            if (!confirm(`Hapus gangguan: ${it.title}?`)) return;
+                            try {
+                              await apiDelete(`/api/incidents/${it.id}`);
+                              toast.success('Gangguan dihapus');
+                              await load();
+                            } catch (e) {
+                              toast.error(e.message || 'Gagal hapus');
+                            }
+                          }}
+                        >
+                          Hapus
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -315,7 +493,101 @@ function IncidentsInner() {
           setTelegramItem(null);
         }}
       />
+
+      <AssignTechModal
+        open={assignOpen}
+        item={assignItem}
+        technicians={technicians}
+        onClose={() => {
+          setAssignOpen(false);
+          setAssignItem(null);
+        }}
+        onDone={load}
+      />
     </div>
+  );
+}
+
+function AssignTechModal({ open, onClose, item, technicians, onDone }) {
+  const toast = useToast();
+  const [techId, setTechId] = useState('');
+  const [contact, setContact] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setTechId('');
+    setContact('');
+  }, [open]);
+
+  return (
+    <Modal open={open} onClose={onClose} title={item ? `Assign Teknisi #${item.id}` : 'Assign Teknisi'} width={760}>
+      {!item ? (
+        <div className="text-sm text-slate-600">Gangguan tidak dipilih.</div>
+      ) : (
+        <form
+          className="space-y-4"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            try {
+              setSaving(true);
+              await apiPatchJson(`/api/incidents/${item.id}/assign`, {
+                technician_user_id: techId,
+                technician_contact: contact || null
+              });
+              toast.success('Teknisi ditugaskan (Surat Jalan)');
+              await onDone?.();
+              onClose();
+            } catch (err) {
+              toast.error(err.message || 'Gagal assign teknisi');
+            } finally {
+              setSaving(false);
+            }
+          }}
+        >
+          <div className="space-y-1">
+            <div className="text-sm font-semibold text-slate-900">{item.title}</div>
+            <div className="text-xs text-slate-500">Status: {statusLabel(item.status)}</div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label>Pilih Teknisi</label>
+            <select
+              className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors"
+              value={techId}
+              onChange={(e) => setTechId(e.target.value)}
+              required
+            >
+              <option value="">-- pilih teknisi --</option>
+              {(technicians || []).map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name} ({t.email})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label>Kontak Teknisi (opsional)</label>
+            <input
+              className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors"
+              value={contact}
+              onChange={(e) => setContact(e.target.value)}
+              placeholder="08xxxx / 62xxxx"
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-slate-100">
+            <button className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-70" disabled={saving}>
+              {saving ? 'Menyimpan…' : 'Assign'}
+            </button>
+            <button type="button" className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-white text-slate-700 hover:bg-slate-50 border border-slate-200" onClick={onClose} disabled={saving}>
+              Batal
+            </button>
+          </div>
+        </form>
+      )}
+    </Modal>
   );
 }
 
