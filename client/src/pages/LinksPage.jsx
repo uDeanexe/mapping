@@ -1,20 +1,188 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Modal from '../components/Modal.jsx';
 import { ToastProvider, useToast } from '../components/Toast.jsx';
-import { apiDelete, apiGet, apiPostJson } from '../lib/api.js';
+import { apiDelete, apiDownload, apiGet, apiPostJson } from '../lib/api.js';
+
+function escapeCsv(value) {
+  if (value === undefined || value === null) return '';
+  const text = String(value);
+  if (/[",\n\r]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
+function parseCsvLine(line) {
+  const values = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let idx = 0; idx < line.length; idx += 1) {
+    const char = line[idx];
+    if (inQuotes) {
+      if (char === '"') {
+        if (line[idx + 1] === '"') {
+          current += '"';
+          idx += 1;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        current += char;
+      }
+    } else if (char === ',') {
+      values.push(current);
+      current = '';
+    } else if (char === '"') {
+      inQuotes = true;
+    } else {
+      current += char;
+    }
+  }
+
+  values.push(current);
+  return values;
+}
+
+function parseCsv(text) {
+  const rows = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  return rows.filter((row) => row.trim() !== '').map(parseCsvLine);
+}
 
 function LinksInner() {
   const toast = useToast();
+  const importInputRef = useRef(null);
   const [links, setLinks] = useState([]);
   const [nodes, setNodes] = useState([]);
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [q, setQ] = useState('');
 
   async function load() {
     const [l, n] = await Promise.all([apiGet('/api/links'), apiGet('/api/nodes')]);
     setLinks(l);
     setNodes(n);
+  }
+
+  async function downloadLinksPdf() {
+    try {
+      await apiDownload('/api/links/report.pdf', `links-report-${new Date().toISOString().slice(0, 10)}.pdf`);
+      toast.success('PDF link berhasil diunduh');
+    } catch (e) {
+      toast.error(e.message || 'Gagal unduh PDF link');
+    }
+  }
+
+  function downloadCsv() {
+    const headers = ['source_node_id', 'source_code', 'target_node_id', 'target_code', 'cable_type', 'core_count', 'core_number', 'pon_name', 'odc_name', 'notes'];
+    const rows = [headers.join(',')];
+    links.forEach((link) => {
+      rows.push(
+        [
+          link.source_node_id,
+          link.source_code,
+          link.target_node_id,
+          link.target_code,
+          link.cable_type,
+          link.core_count,
+          link.core_number,
+          link.pon_name,
+          link.odc_name,
+          link.notes
+        ]
+          .map(escapeCsv)
+          .join(',')
+      );
+    });
+
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `links-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
+  }
+
+  async function importCsvFile(file) {
+    const text = await file.text();
+    const rows = parseCsv(text);
+    if (rows.length === 0) throw new Error('CSV kosong atau tidak valid');
+
+    const headerRow = rows[0].map((cell) => String(cell || '').trim().toLowerCase());
+    const sourceIndex = headerRow.indexOf('source_node_id') >= 0 ? headerRow.indexOf('source_node_id') : headerRow.indexOf('source_code');
+    const targetIndex = headerRow.indexOf('target_node_id') >= 0 ? headerRow.indexOf('target_node_id') : headerRow.indexOf('target_code');
+    if (sourceIndex === -1 || targetIndex === -1) {
+      throw new Error('CSV harus berisi kolom source_node_id/source_code dan target_node_id/target_code');
+    }
+
+    const sourceByCode = Object.fromEntries(nodes.map((node) => [String(node.code || '').toLowerCase(), node.id]));
+    const targetByCode = sourceByCode;
+    const results = { created: 0, skipped: 0, errors: [] };
+
+    for (let i = 1; i < rows.length; i += 1) {
+      const row = rows[i];
+      if (row.every((cell) => String(cell || '').trim() === '')) {
+        results.skipped += 1;
+        continue;
+      }
+      const data = Object.fromEntries(headerRow.map((key, index) => [key, String(row[index] ?? '').trim()]));
+
+      const sourceNodeId = data.source_node_id || sourceByCode[String(data.source_code || '').toLowerCase()];
+      const targetNodeId = data.target_node_id || targetByCode[String(data.target_code || '').toLowerCase()];
+      if (!sourceNodeId || !targetNodeId) {
+        results.errors.push(`Baris ${i + 1}: source atau target tidak valid`);
+        continue;
+      }
+      if (sourceNodeId === targetNodeId) {
+        results.errors.push(`Baris ${i + 1}: source dan target tidak boleh sama`);
+        continue;
+      }
+
+      try {
+        await apiPostJson('/api/links', {
+          source_node_id: Number(sourceNodeId),
+          target_node_id: Number(targetNodeId),
+          cable_type: data.cable_type || null,
+          core_count: data.core_count ? Number(data.core_count) : null,
+          core_number: data.core_number || null,
+          pon_name: data.pon_name || null,
+          odc_name: data.odc_name || null,
+          notes: data.notes || null
+        });
+        results.created += 1;
+      } catch (error) {
+        results.errors.push(`Baris ${i + 1}: ${error.message || 'Gagal simpan'}`);
+      }
+    }
+
+    if (results.created === 0 && results.errors.length > 0) {
+      throw new Error(results.errors.join('; '));
+    }
+    return results;
+  }
+
+  async function handleImportChange(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    try {
+      const results = await importCsvFile(file);
+      await load();
+      toast.success(`Import selesai: ${results.created} baris dibuat${results.errors.length ? `, ${results.errors.length} baris gagal` : ''}`);
+    } catch (error) {
+      toast.error(error.message || 'Gagal import CSV');
+    } finally {
+      setImporting(false);
+      event.target.value = '';
+    }
+  }
+
+  function openImportDialog() {
+    importInputRef.current?.click();
   }
 
   useEffect(() => {
@@ -57,11 +225,31 @@ function LinksInner() {
           <p className="mt-1 text-sm text-slate-500">Hubungan antar node (source &rarr; target) beserta informasi kabel/core.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <button
+            className="inline-flex items-center justify-center rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 transition-colors border border-slate-200"
+            onClick={openImportDialog}
+            disabled={importing}
+          >
+            {importing ? 'Import...' : 'Import CSV'}
+          </button>
+          <button
+            className="inline-flex items-center justify-center rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 transition-colors border border-slate-200"
+            onClick={downloadCsv}
+          >
+            Export CSV
+          </button>
+          <button
+            className="inline-flex items-center justify-center rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 transition-colors border border-slate-200"
+            onClick={downloadLinksPdf}
+          >
+            Export PDF
+          </button>
           <button className="inline-flex items-center justify-center rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-sky-500 transition-colors" onClick={() => setOpen(true)}>
             Tambah Link
           </button>
         </div>
       </div>
+      <input ref={importInputRef} type="file" accept=".csv" className="hidden" onChange={handleImportChange} />
 
       {nodes.length < 2 ? (
         <div className="rounded-lg bg-amber-50 p-4 text-sm font-medium text-amber-800 border border-amber-200">

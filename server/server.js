@@ -25,7 +25,7 @@ const {
   userCreateSchema,
   userUpdateSchema
 } = require('./lib/validation');
-const { buildSuratJalanPdf, buildSuratJalanPdfBuffer } = require('./lib/pdf');
+const { buildSuratJalanPdf, buildSuratJalanPdfBuffer, buildTopologyPdf } = require('./lib/pdf');
 const { createTransport } = require('./lib/email');
 
 const app = express();
@@ -44,10 +44,6 @@ const SERVE_CLIENT = String(process.env.SERVE_CLIENT || '').toLowerCase();
 const shouldServeClient =
   SERVE_CLIENT === '1' ||
   SERVE_CLIENT === 'true' ||
-  String(process.env.NODE_ENV || '').toLowerCase() === 'production';
-const SERVE_CLIENT =
-  String(process.env.SERVE_CLIENT || '').toLowerCase() === '1' ||
-  String(process.env.SERVE_CLIENT || '').toLowerCase() === 'true' ||
   String(process.env.NODE_ENV || '').toLowerCase() === 'production';
 
 if (String(process.env.NODE_ENV || '').toLowerCase() === 'production') {
@@ -746,6 +742,78 @@ app.get('/api/links', async (req, res) => {
     `;
     const rows = await db.all(sql);
     res.json(rows);
+  } catch (e) {
+    apiError(res, 500, e.message);
+  }
+});
+
+app.get('/api/links/report.pdf', async (req, res) => {
+  try {
+    const [links, nodes] = await Promise.all([
+      db.all(
+        `
+          SELECT
+            links.*,
+            source.code AS source_code,
+            target.code AS target_code
+          FROM links
+          JOIN nodes AS source ON source.id = links.source_node_id
+          JOIN nodes AS target ON target.id = links.target_node_id
+          ORDER BY links.id DESC
+        `
+      ),
+      db.all('SELECT id, code, name, node_type_id, latitude, longitude, address, notes FROM nodes ORDER BY id DESC')
+    ]);
+
+    const doc = buildTopologyPdf({ title: 'Laporan Link', nodes, links });
+    const filename = `links-report-${new Date().toISOString().slice(0, 10)}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename.replace(/"/g, '')}"`);
+    doc.pipe(res);
+    doc.end();
+  } catch (e) {
+    apiError(res, 500, e.message);
+  }
+});
+
+app.get('/api/topology/report.pdf', async (req, res) => {
+  try {
+    const [nodes, links] = await Promise.all([
+      db.all(
+        `
+          SELECT
+            nodes.*,
+            node_types.name AS type,
+            node_types.label AS type_label
+          FROM nodes
+          JOIN node_types ON node_types.id = nodes.node_type_id
+          ORDER BY nodes.id DESC
+        `
+      ),
+      db.all(
+        `
+          SELECT
+            links.*,
+            source.code AS source_code,
+            target.code AS target_code,
+            source.latitude AS source_latitude,
+            source.longitude AS source_longitude,
+            target.latitude AS target_latitude,
+            target.longitude AS target_longitude
+          FROM links
+          JOIN nodes AS source ON source.id = links.source_node_id
+          JOIN nodes AS target ON target.id = links.target_node_id
+          ORDER BY links.id DESC
+        `
+      )
+    ]);
+
+    const doc = buildTopologyPdf({ title: 'Laporan Topologi', nodes, links });
+    const filename = `topology-report-${new Date().toISOString().slice(0, 10)}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename.replace(/"/g, '')}"`);
+    doc.pipe(res);
+    doc.end();
   } catch (e) {
     apiError(res, 500, e.message);
   }

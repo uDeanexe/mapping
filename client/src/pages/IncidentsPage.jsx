@@ -1,6 +1,7 @@
 ﻿import React, { useEffect, useMemo, useState } from 'react';
 import Modal from '../components/Modal.jsx';
 import { ToastProvider, useToast } from '../components/Toast.jsx';
+import SuratJalanModal from '../components/SuratJalanModal.jsx';
 import { apiDelete, apiGet, apiPatchJson, apiPostForm, apiPostJson } from '../lib/api.js';
 
 function statusLabel(status) {
@@ -73,6 +74,9 @@ function IncidentsInner() {
   const [editing, setEditing] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [q, setQ] = useState('');
+  const [sjOpen, setSjOpen] = useState(false);
+  const [sjNode, setSjNode] = useState(null);
+  const [sjIncident, setSjIncident] = useState(null);
   const [sendOpen, setSendOpen] = useState(false);
   const [sendItem, setSendItem] = useState(null);
   const [completeOpen, setCompleteOpen] = useState(false);
@@ -202,7 +206,10 @@ function IncidentsInner() {
                       <button
                         className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
                         onClick={() => {
-                          toast.error('Surat Jalan butuh backend/server. Saat ini UI langsung ke Supabase.');
+                          const node = it.node_id ? nodes.find((n) => Number(n.id) === Number(it.node_id)) : null;
+                          setSjNode(node);
+                          setSjIncident(it);
+                          setSjOpen(true);
                         }}
                       >
                         Surat Jalan
@@ -210,7 +217,8 @@ function IncidentsInner() {
                       <button
                         className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200"
                         onClick={() => {
-                          toast.error('Kirim Email butuh backend/server. Saat ini UI langsung ke Supabase.');
+                          setSendItem(it);
+                          setSendOpen(true);
                         }}
                       >
                         Email
@@ -224,7 +232,8 @@ function IncidentsInner() {
                       <button
                         className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200"
                         onClick={() => {
-                          toast.error('Telegram Bot butuh backend/server. Saat ini UI langsung ke Supabase.');
+                          setTelegramItem(it);
+                          setTelegramOpen(true);
                         }}
                       >
                         Bot TG
@@ -278,6 +287,16 @@ function IncidentsInner() {
         onSubmit={submit}
       />
 
+      <SuratJalanModal
+        open={sjOpen}
+        node={sjNode}
+        incident={sjIncident}
+        onClose={() => {
+          setSjOpen(false);
+          setSjNode(null);
+          setSjIncident(null);
+        }}
+      />
       <SendEmailModal open={sendOpen} item={sendItem} onClose={() => { setSendOpen(false); setSendItem(null); }} />
       <CompleteModal
         open={completeOpen}

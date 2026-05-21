@@ -77,22 +77,24 @@ function MapInner() {
   }, [toast]);
 
   const polylines = useMemo(() => {
+    const byId = new Map(nodes.map((n) => [String(n.id), n]));
     return links
-      .filter(
-        (l) =>
-          Number.isFinite(l.source_latitude) &&
-          Number.isFinite(l.source_longitude) &&
-          Number.isFinite(l.target_latitude) &&
-          Number.isFinite(l.target_longitude)
-      )
-      .map((l) => ({
-        id: l.id,
-        path: [
-          [Number(l.source_latitude), Number(l.source_longitude)],
-          [Number(l.target_latitude), Number(l.target_longitude)]
-        ]
-      }));
-  }, [links]);
+      .map((l) => {
+        const a = byId.get(String(l.source_node_id));
+        const b = byId.get(String(l.target_node_id));
+        if (!a || !b) return null;
+        if (!Number.isFinite(a.latitude) || !Number.isFinite(a.longitude)) return null;
+        if (!Number.isFinite(b.latitude) || !Number.isFinite(b.longitude)) return null;
+        return {
+          id: l.id,
+          path: [
+            [Number(a.latitude), Number(a.longitude)],
+            [Number(b.latitude), Number(b.longitude)]
+          ]
+        };
+      })
+      .filter(Boolean);
+  }, [links, nodes]);
 
   return (
     <div className="space-y-6">

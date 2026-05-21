@@ -201,6 +201,63 @@ function buildSuratJalanPdf({ node, createdAt = new Date(), extras = {}, uploadD
   return doc;
 }
 
+function buildTopologyPdf({ title = 'Topology Report', nodes = [], links = [] }) {
+  const doc = new PDFDocument({ size: 'A4', margin: 40 });
+  const pageW = 595.28;
+
+  doc.save();
+  doc.rect(0, 0, pageW, 86).fill('#0B1220');
+  doc.fillColor('#FFFFFF');
+  doc.font('Helvetica-Bold').fontSize(17).text(title, 40, 24, { align: 'center' });
+  doc.font('Helvetica').fontSize(10).text('Sistem Mapping Jaringan', 40, 52, { align: 'center' });
+  doc.restore();
+
+  doc.fillColor('#111827');
+  doc.moveDown(3.5);
+  doc.font('Helvetica-Bold').fontSize(11).text('Ringkasan', { continued: false });
+  doc.moveDown(0.5);
+  doc.font('Helvetica').fontSize(9).text(`Jumlah node: ${nodes.length}`);
+  doc.font('Helvetica').fontSize(9).text(`Jumlah link: ${links.length}`);
+  doc.moveDown(1);
+
+  if (nodes.length > 0) {
+    doc.font('Helvetica-Bold').fontSize(11).text('Daftar Node');
+    doc.moveDown(0.5);
+    nodes.forEach((node, index) => {
+      const label = node.type_label || node.type || '-';
+      const coord = Number.isFinite(node.latitude) && Number.isFinite(node.longitude) ? `${node.latitude}, ${node.longitude}` : '-';
+      doc.font('Helvetica-Bold').fontSize(9).text(`${index + 1}. ${node.code} (${label})`, { continued: false });
+      doc.font('Helvetica').fontSize(9).fillColor('#6B7280').text(`    Nama: ${node.name || '-'} | Lokasi: ${coord}`);
+      doc.font('Helvetica').fontSize(9).fillColor('#6B7280').text(`    Alamat: ${node.address || '-'}${node.notes ? ` | Catatan: ${clipText(node.notes, 160)}` : ''}`);
+      doc.fillColor('#111827');
+      doc.moveDown(0.5);
+    });
+    doc.moveDown(0.5);
+  }
+
+  if (links.length > 0) {
+    doc.addPage();
+    doc.font('Helvetica-Bold').fontSize(11).text('Daftar Link');
+    doc.moveDown(0.5);
+    links.forEach((link, index) => {
+      const label = link.cable_type ? `${link.cable_type}` : '-';
+      const core = link.core_count ? `core ${link.core_count}` : '-';
+      doc.font('Helvetica-Bold').fontSize(9).text(`${index + 1}. ${link.source_code} -> ${link.target_code}`, { continued: false });
+      doc.font('Helvetica').fontSize(9).fillColor('#6B7280').text(`    Kabel: ${label} | ${core} ${link.core_number ? `(${link.core_number})` : ''}`);
+      doc.font('Helvetica').fontSize(9).fillColor('#6B7280').text(`    PON: ${link.pon_name || '-'} | ODC: ${link.odc_name || '-'} | Catatan: ${link.notes || '-'}`);
+      doc.fillColor('#111827');
+      doc.moveDown(0.5);
+    });
+  }
+
+  doc.moveDown(1);
+  doc.font('Helvetica').fontSize(8).fillColor('#6B7280').text('Dokumen ini di-generate otomatis oleh Sistem Mapping.', 40, doc.y, {
+    align: 'left'
+  });
+
+  return doc;
+}
+
 function buildSuratJalanPdfBuffer(opts) {
   return new Promise((resolve, reject) => {
     try {
@@ -216,4 +273,4 @@ function buildSuratJalanPdfBuffer(opts) {
   });
 }
 
-module.exports = { buildSuratJalanPdf, buildSuratJalanPdfBuffer };
+module.exports = { buildSuratJalanPdf, buildSuratJalanPdfBuffer, buildTopologyPdf };

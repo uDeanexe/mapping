@@ -11,10 +11,7 @@ import WorkReportsPage from './pages/WorkReportsPage.jsx';
 import UsersPage from './pages/UsersPage.jsx';
 import Sidebar from './components/sidebar.jsx';
 import Header from './components/header.jsx';
-import { canManageUsers } from './lib/auth.js';
-import { supabase } from './lib/supabase.js';
-import { useSession } from './lib/useSession.js';
-import { useProfile } from './lib/useProfile.js';
+import { canManageUsers, clearAuth, getStoredUser, getToken } from './lib/auth.js';
 
 const navItems = [
   {
@@ -119,13 +116,7 @@ const navItems = [
 function Layout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { session } = useSession();
-  const { profile } = useProfile(session);
-  const user = profile
-    ? { ...profile, email: profile.email || session?.user?.email || null }
-    : session?.user
-      ? { id: session.user.id, email: session.user.email, name: session.user.email, role: 'teknisi', is_active: 1 }
-      : null;
+  const user = getStoredUser();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
@@ -151,9 +142,8 @@ function Layout({ children }) {
   }, [isSidebarOpen]);
 
   const handleLogout = () => {
-    supabase.auth.signOut().finally(() => {
-      navigate('/login', { replace: true });
-    });
+    clearAuth();
+    navigate('/login', { replace: true });
   };
 
   return (
@@ -181,17 +171,7 @@ function Layout({ children }) {
 }
 
 function RequireAuth({ children }) {
-  const { session, loading } = useSession();
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-50 px-4 flex items-center justify-center">
-        <div className="rounded-xl bg-white border border-slate-200 shadow-sm p-6 text-sm font-semibold text-slate-700">
-          Loading…
-        </div>
-      </div>
-    );
-  }
-  if (!session) return <Navigate to="/login" replace />;
+  if (!getToken()) return <Navigate to="/login" replace />;
   return children;
 }
 

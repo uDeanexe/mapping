@@ -55,9 +55,15 @@ function UsersInner() {
           <p className="mt-1 text-sm text-slate-500">Kelola user dan role akses sistem.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <div className="text-xs text-slate-500">
-            Buat user baru: pakai Supabase Dashboard (Authentication → Users).
-          </div>
+          <button
+            className="inline-flex items-center justify-center rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-sky-500 transition-colors"
+            onClick={() => {
+              setEditing(null);
+              setOpen(true);
+            }}
+          >
+            Tambah User
+          </button>
         </div>
       </div>
 
@@ -189,13 +195,15 @@ function UserModal({ open, onClose, initial, onSubmit, saving }) {
               value={values.email}
               onChange={(e) => setValues((v) => ({ ...v, email: e.target.value }))}
               required
-              disabled={Boolean(initial)}
-              title={initial ? 'Email tidak bisa diubah (Supabase Auth)' : ''}
             />
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="block text-sm font-semibold text-slate-700">Password {initial ? '(kosongkan jika tidak diganti)' : ''}</label>
+            <input className={inputClass} type="password" value={values.password} onChange={(e) => setValues((v) => ({ ...v, password: e.target.value }))} required={!initial} />
+          </div>
           <div className="space-y-1.5">
             <label className="block text-sm font-semibold text-slate-700">Role</label>
             <select className={inputClass} value={values.role} onChange={(e) => setValues((v) => ({ ...v, role: e.target.value }))}>
@@ -205,12 +213,6 @@ function UserModal({ open, onClose, initial, onSubmit, saving }) {
                 </option>
               ))}
             </select>
-          </div>
-          <div className="space-y-1.5">
-            <label className="block text-sm font-semibold text-slate-700">Catatan</label>
-            <div className="text-xs text-slate-500 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
-              Password user dikelola lewat Supabase Auth (Dashboard). Halaman ini hanya mengatur role/profile.
-            </div>
           </div>
         </div>
 

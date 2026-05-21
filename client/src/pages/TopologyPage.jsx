@@ -13,7 +13,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { Link } from 'react-router-dom';
-import { apiGet, apiPatchJson, apiPostJson } from '../lib/api.js';
+import { apiDownload, apiGet, apiPatchJson, apiPostJson } from '../lib/api.js';
 import { ToastProvider, useToast } from '../components/Toast.jsx';
 import TopologyNode from '../components/TopologyNode.jsx';
 
@@ -49,6 +49,15 @@ function TopologyInner() {
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const lastSavedRef = React.useRef(new Map());
   const updateNodeInternals = useUpdateNodeInternals();
+
+  async function downloadTopologyPdf() {
+    try {
+      await apiDownload('/api/topology/report.pdf', `topology-report-${new Date().toISOString().slice(0, 10)}.pdf`);
+      toast.success('PDF topology berhasil diunduh');
+    } catch (e) {
+      toast.error(e.message || 'Gagal unduh PDF topology');
+    }
+  }
 
   useEffect(() => {
     let alive = true;
@@ -140,6 +149,12 @@ function TopologyInner() {
           </Link>
           <button
             className="inline-flex items-center justify-center rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 transition-colors border border-slate-200"
+            onClick={downloadTopologyPdf}
+          >
+            Export PDF
+          </button>
+          <button
+            className="inline-flex items-center justify-center rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 transition-colors border border-slate-200"
             onClick={async () => {
               try {
                 const [n, l] = await Promise.all([apiGet('/api/nodes'), apiGet('/api/links')]);
@@ -205,16 +220,11 @@ function TopologyInner() {
                 const newId = created?.id;
                 if (Number.isFinite(Number(newId))) {
                   setLinksRaw((prev) => [
-                    {
-                      id: Number(newId),
-                      source_node_id: sourceId,
-                      target_node_id: targetId
-                    },
+                    { id: Number(newId), source_node_id: sourceId, target_node_id: targetId },
                     ...prev
                   ]);
                 } else {
-                  const l = await apiGet('/api/links');
-                  setLinksRaw(l);
+                  setLinksRaw(await apiGet('/api/links'));
                 }
                 toast.success('Link dibuat');
               } catch (e) {
