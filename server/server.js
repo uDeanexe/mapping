@@ -27,7 +27,12 @@ const {
   userCreateSchema,
   userUpdateSchema
 } = require('./lib/validation');
-const { buildSuratJalanPdf, buildSuratJalanPdfBuffer, buildTopologyPdf } = require('./lib/pdf');
+const {
+  buildSuratJalanPdf,
+  buildSuratJalanPdfBuffer,
+  buildTopologyPdf,
+  buildLinkLabelsPdfBuffer
+} = require('./lib/pdf');
 const { createTransport } = require('./lib/email');
 
 const app = express();
@@ -73,6 +78,29 @@ ensureDir(path.resolve(UPLOAD_DIR, 'temp'));
 
 let rawDb = null;
 let db = null;
+
+async function getLinkById(id) {
+  const sql = `
+    SELECT
+      links.*,
+      source.code AS source_code,
+      source.node_type_id AS source_node_type_id,
+      sourceTypes.name AS source_type,
+      sourceTypes.label AS source_type_label,
+      target.code AS target_code,
+      target.node_type_id AS target_node_type_id,
+      targetTypes.name AS target_type,
+      targetTypes.label AS target_type_label
+    FROM links
+    JOIN nodes AS source ON source.id = links.source_node_id
+    JOIN nodes AS target ON target.id = links.target_node_id
+    LEFT JOIN node_types AS sourceTypes ON sourceTypes.id = source.node_type_id
+    LEFT JOIN node_types AS targetTypes ON targetTypes.id = target.node_type_id
+    WHERE links.id = ?
+    LIMIT 1
+  `;
+  return db.get(sql, [id]);
+}
 
 async function bootstrap() {
   await ensureDatabaseExists();
@@ -199,6 +227,25 @@ const uploadIncident = multer({
 
 function apiError(res, status, message, extra) {
   res.status(status).json({ error: message, ...(extra ? { details: extra } : {}) });
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function publicBaseUrlFromReq(req) {
+  const proto = req.headers['x-forwarded-proto']
+    ? String(req.headers['x-forwarded-proto']).split(',')[0].trim()
+    : req.protocol;
+  const host = req.headers['x-forwarded-host']
+    ? String(req.headers['x-forwarded-host']).split(',')[0].trim()
+    : req.get('host');
+  return `${proto}://${host}${EFFECTIVE_BASE_PATH || ''}`.replace(/\/+$/g, '');
 }
 
 function publicUser(row) {
@@ -547,7 +594,7 @@ app.get('/api/nodes/:id/surat-jalan.pdf', async (req, res) => {
       ticket_no: req.query.ticket_no
     };
 
-    const doc = buildSuratJalanPdf({
+    const pdfBuffer = await buildSuratJalanPdfBuffer({
       node,
       createdAt: new Date(),
       extras,
@@ -562,8 +609,7 @@ app.get('/api/nodes/:id/surat-jalan.pdf', async (req, res) => {
       `${download ? 'attachment' : 'inline'}; filename="${filename.replace(/\"/g, '')}"`
     );
 
-    doc.pipe(res);
-    doc.end();
+    res.end(pdfBuffer);
   } catch (e) {
     apiError(res, 500, e.message);
   }
@@ -601,7 +647,7 @@ app.get('/api/incidents/:id/surat-jalan.pdf', async (req, res) => {
       photo_path: incident.photo_path || pdfNode.photo_path
     };
 
-    const doc = buildSuratJalanPdf({
+    const pdfBuffer = await buildSuratJalanPdfBuffer({
       node: pdfNode,
       createdAt: new Date(),
       extras,
@@ -616,8 +662,7 @@ app.get('/api/incidents/:id/surat-jalan.pdf', async (req, res) => {
       `${download ? 'attachment' : 'inline'}; filename="${filename.replace(/\"/g, '')}"`
     );
 
-    doc.pipe(res);
-    doc.end();
+    res.end(pdfBuffer);
   } catch (e) {
     apiError(res, 500, e.message);
   }
@@ -797,6 +842,57 @@ app.get('/api/links', async (req, res) => {
   }
 });
 
+app.get('/api/links/labels.pdf', async (req, res) => {
+  try {
+    const idsRaw = String(req.query.ids || '').trim();
+    const ids =
+      idsRaw
+        ? idsRaw
+            .split(',')
+            .map((s) => Number(String(s).trim()))
+            .filter((n) => Number.isFinite(n) && n > 0)
+        : [];
+
+    const where = ids.length > 0 ? `WHERE links.id IN (${ids.map(() => '?').join(', ')})` : '';
+    const sql = `
+      SELECT
+        links.*,
+        source.code AS source_code,
+        target.code AS target_code
+      FROM links
+      JOIN nodes AS source ON source.id = links.source_node_id
+      JOIN nodes AS target ON target.id = links.target_node_id
+      ${where}
+      ORDER BY links.id DESC
+    `;
+    const links = await db.all(sql, ids);
+
+    const publicBaseUrl = publicBaseUrlFromReq(req);
+    const preset = String(req.query.preset || '').trim().toLowerCase();
+
+    const layoutPresets = {
+      // A4 sticker sheet default (mirrors previous behavior; approx 67x35mm per label)
+      a4_3x8: { cols: 3, rows: 8, marginXmm: 6, marginYmm: 10, gapXmm: 3, gapYmm: 3 },
+      // Slightly tighter (more fill area)
+      a4_3x8_tight: { cols: 3, rows: 8, marginXmm: 4, marginYmm: 8, gapXmm: 2, gapYmm: 2 }
+    };
+    const layout = layoutPresets[preset] || layoutPresets.a4_3x8;
+    const pdfBuffer = await buildLinkLabelsPdfBuffer({
+      title: 'Label Link',
+      links,
+      publicBaseUrl,
+      layout
+    });
+
+    const filename = `link-labels-${new Date().toISOString().slice(0, 10)}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename.replace(/\"/g, '')}"`);
+    res.end(pdfBuffer);
+  } catch (e) {
+    apiError(res, 500, e.message);
+  }
+});
+
 app.get('/api/links/report.pdf', async (req, res) => {
   try {
     const [links, nodes] = await Promise.all([
@@ -866,6 +962,84 @@ app.get('/api/topology/report.pdf', async (req, res) => {
     doc.end();
   } catch (e) {
     apiError(res, 500, e.message);
+  }
+});
+
+// Public scan page for printed labels (QR -> details).
+app.get('/scan/link/:id', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('Invalid ID');
+
+    const link = await getLinkById(id);
+    if (!link) return res.status(404).send('Link not found');
+
+    const title = `LINK#${link.id} ${link.source_code} -> ${link.target_code}`;
+    const base = publicBaseUrlFromReq(req);
+
+    const lines = [
+      `Alur: ${link.source_code} -> ${link.target_code}`,
+      `Kabel: ${link.cable_type || '-'}`,
+      `Jumlah Core: ${link.core_count ?? '-'}`,
+      `No/Core: ${link.core_number || '-'}`,
+      `PON: ${link.pon_name || '-'}`,
+      `ODC: ${link.odc_name || '-'}`,
+      `Catatan: ${link.notes || '-'}`
+    ];
+
+    const html = `<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(title)}</title>
+    <style>
+      :root { color-scheme: light; }
+      body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Liberation Sans"; margin: 0; background: #f8fafc; color: #0f172a; }
+      .wrap { max-width: 760px; margin: 0 auto; padding: 18px; }
+      .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+      .h { font-weight: 800; font-size: 18px; margin: 0 0 8px; }
+      .sub { color: #475569; font-size: 13px; margin: 0 0 12px; }
+      .grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+      .kv { display: flex; gap: 10px; align-items: baseline; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc; }
+      .k { min-width: 98px; font-weight: 700; color: #334155; font-size: 12px; }
+      .v { font-size: 14px; word-break: break-word; }
+      .pill { display: inline-flex; padding: 2px 10px; border-radius: 999px; background: #e0f2fe; color: #0369a1; font-weight: 700; font-size: 12px; }
+      a { color: #1d4ed8; text-decoration: none; }
+      .btn { display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; padding: 10px 12px; background: #0f172a; color: #fff; font-weight: 700; }
+      .btn:active { transform: translateY(1px); }
+      .row { display:flex; gap:10px; flex-wrap:wrap; margin-top: 12px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <p class="pill">Label Link</p>
+        <h1 class="h">${escapeHtml(title)}</h1>
+        <p class="sub">Scan dari barcode/QR label. Base: <a href="${escapeHtml(base)}/">${escapeHtml(base)}</a></p>
+        <div class="grid">
+          <div class="kv"><div class="k">Alur</div><div class="v">${escapeHtml(`${link.source_code} -> ${link.target_code}`)}</div></div>
+          <div class="kv"><div class="k">Kabel</div><div class="v">${escapeHtml(link.cable_type || '-')}</div></div>
+          <div class="kv"><div class="k">Jumlah Core</div><div class="v">${escapeHtml(link.core_count ?? '-')}</div></div>
+          <div class="kv"><div class="k">No/Core</div><div class="v">${escapeHtml(link.core_number || '-')}</div></div>
+          <div class="kv"><div class="k">PON</div><div class="v">${escapeHtml(link.pon_name || '-')}</div></div>
+          <div class="kv"><div class="k">ODC</div><div class="v">${escapeHtml(link.odc_name || '-')}</div></div>
+          <div class="kv"><div class="k">Catatan</div><div class="v">${escapeHtml(link.notes || '-')}</div></div>
+        </div>
+        <div class="row">
+          <a class="btn" href="${escapeHtml(base)}/links">Buka Halaman Links</a>
+          <a class="btn" href="${escapeHtml(base)}/topology">Buka Topology</a>
+        </div>
+        <p class="sub" style="margin-top:14px;">Format singkat (copy/paste):<br/>${escapeHtml(lines.join('\n'))}</p>
+      </div>
+    </div>
+  </body>
+</html>`;
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.status(200).send(html);
+  } catch (e) {
+    res.status(500).send(escapeHtml(e.message || 'Server error'));
   }
 });
 

@@ -58,6 +58,7 @@ function LinksInner() {
   const [submitting, setSubmitting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [q, setQ] = useState('');
+  const [labelPreset, setLabelPreset] = useState('a4_3x8');
 
   async function load() {
     const [l, n] = await Promise.all([apiGet('/api/links'), apiGet('/api/nodes')]);
@@ -71,6 +72,21 @@ function LinksInner() {
       toast.success('PDF link berhasil diunduh');
     } catch (e) {
       toast.error(e.message || 'Gagal unduh PDF link');
+    }
+  }
+
+  async function downloadLabelsPdf() {
+    try {
+      const ids = filtered.map((l) => l.id).filter(Boolean);
+      if (ids.length === 0) {
+        toast.error('Tidak ada link untuk dibuat label');
+        return;
+      }
+      const qs = `?ids=${encodeURIComponent(ids.join(','))}&preset=${encodeURIComponent(labelPreset)}`;
+      await apiDownload(`/api/links/labels.pdf${qs}`, `link-labels-${new Date().toISOString().slice(0, 10)}.pdf`);
+      toast.success('Label barcode/QR berhasil diunduh');
+    } catch (e) {
+      toast.error(e.message || 'Gagal unduh label');
     }
   }
 
@@ -243,6 +259,22 @@ function LinksInner() {
             onClick={downloadLinksPdf}
           >
             Export PDF
+          </button>
+          <select
+            className="rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 transition-colors"
+            value={labelPreset}
+            onChange={(e) => setLabelPreset(e.target.value)}
+            title="Preset ukuran stiker"
+          >
+            <option value="a4_3x8">Stiker A4 3x8 (default)</option>
+            <option value="a4_3x8_tight">Stiker A4 3x8 (tight)</option>
+          </select>
+          <button
+            className="inline-flex items-center justify-center rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 transition-colors border border-slate-200"
+            onClick={downloadLabelsPdf}
+            title="Buat label barcode/QR untuk link yang tampil (sesuai filter search)"
+          >
+            Label Barcode
           </button>
           <button className="inline-flex items-center justify-center rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-sky-500 transition-colors" onClick={() => setOpen(true)}>
             Tambah Link
